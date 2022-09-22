@@ -99,7 +99,6 @@ such phased germline mutations exist.
 
 ### Examples
 
-
 ```shell
 # [Example 1] Basic run with tumor only
 python3 neoag-tools.py phase \
@@ -190,6 +189,53 @@ Base1  = TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
 Base2  = TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
 Base3  = TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
 ```
+
+### Output
+
+#### <tumor_name>.muts.fa
+
+FASTA that contains eight lines per record:
+ 1. FASTA entry header
+ 2. Wild type protein sequence
+ 3. Amino acid concordance string
+ 4. Mutated protein sequence
+ 5. Mutated cDNA sequence
+ 6. cDNA concordance string
+ 7. Wild type cDNA sequence
+ 8. Exon boundary string
+
+Each symbol in a cDNA concordance string is:
+
+ - `m`: Mutation
+ - `dd`: A base before and after deleted bases
+ - `i+`: Inserted bases
+
+FASTA entry header is formatted:
+
+```
+ > {somatic_mutation_field} ; {germline_mutation_field}
+```
+
+The above germline mutation filed will be only written if
+there are phased coding germline mutations.
+
+
+#### <tumor_name>.peptide.tsv
+
+TAB-separated TSV file with wild type (`pep_wt`) and mutated (`pep`)
+peptides in specified lengths. There are upstream (`ctex_up`) and
+downstream (`ctex_dn`) contexts from the mutated peptides.
+`pep_start` and `pep_end` correspond to start and end positions of
+amino acids that are changed due to mutations. If users are interested
+in extracting sub-sequences, use these coordinates with the above
+FASTA file.
+
+#### <tumor_name>.neorrf.tsv
+
+TAB-separated TSV file with neo-ORF (`neoORF`) and the upstream sequence
+(`upstream`). `neoORF_start` corresponds to the start position of a
+neoantigen with neo-ORF.
+
 
 ### Examples
 

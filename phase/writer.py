@@ -149,7 +149,7 @@ def write_phase_vcf_from_scratch(outname, t_name, n_name, df):
                               str(refc+altc),
                               str(altc/float(refc+altc))]
             v.insert(len(v)-1, ';'.join(normal_format))
-        fo.write('\t'.join(v)+'\n')
+        fo.write('\t'.join(list(map(str,v)))+'\n')
     fo.close()
 
 

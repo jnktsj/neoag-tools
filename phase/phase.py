@@ -109,8 +109,8 @@ def group_mutations(df, max_dist, group_id, min_cov, excl_indel=False):
             continue
         if dist <= max_dist:
             curr_id = prev_id+1 if curr_id > prev_id else curr_id
-            df.at[i-1, group_id] = curr_id
-            df.at[i, group_id] = curr_id
+            df.loc[i-1, group_id] = curr_id
+            df.loc[i, group_id] = curr_id
             prev_id = curr_id
         else:
             curr_id += 1
@@ -374,8 +374,8 @@ def phase_mutations(df, chrom,
             df.loc[list(block), 'PhaseID'] = PHASE_ID
 
     is_unphased = df['PhaseID'].isna()
-    df.at[is_unphased, 'MNP'] = np.nan
-    df.at[is_unphased, 'ClonalStructure'] = [set() for i in range(sum(is_unphased))]
+    df.loc[is_unphased, 'MNP'] = np.nan
+    df.loc[is_unphased, 'ClonalStructure'] = [set() for i in range(sum(is_unphased))]
     if sum(df['MNP'].isna()) == len(df.index):
         return df
     
@@ -452,7 +452,7 @@ def integrate_germline(df, chrom, t, n, genome, max_dist, min_base_q, min_map_q)
                     if gm not in germline:
                         germline.append(gm)
         if len(germline) > gm_size:
-            df.at[i, 'GermlineID'] = GERMLINE_ID
+            df.loc[i, 'GermlineID'] = GERMLINE_ID
             gm_size = len(germline)
         else:
             GERMLINE_ID -= 1
@@ -494,7 +494,7 @@ def run(args):
                              'MNP', args.min_coverage,
                              excl_indel=True)
         df['ClonalStructure'] = [set() for i in df.index]
-        
+
         dfs = [df[df['PhaseID'].isna()]]
         if len(dfs[0].index) < len(df.index):
             for i, x in df.groupby('PhaseID', dropna=True, sort=False):
@@ -542,7 +542,7 @@ def run(args):
     cols_to_keep = ['ClonalStructure','PhaseID','GermlineID']
     is_mnp = pi & smuts['Variant_Type'].isin(['DNP','TNP','MNP'])
     if 'ccf_hat' in smuts and sum(is_mnp) > 0:
-        smuts.at[is_mnp,'ccf_hat'] = smuts[is_mnp]['maf_idx'].apply(
+        smuts.loc[is_mnp,'ccf_hat'] = smuts[is_mnp]['maf_idx'].apply(
             lambda x: m.muts.loc[list(x), 'ccf_hat'].min()
         )
         cols_to_keep.insert(0,'ccf_hat')
@@ -552,7 +552,7 @@ def run(args):
         logging.info('found {} somatic phased mutations'.format(sum(pi)))
         smuts = smuts[pi].reset_index(drop=True)
         count = list(smuts.columns[smuts.columns.str.endswith('_count')])
-        smuts[count] = smuts[count].astype(int)
+        smuts[count] = smuts[count].fillna(value=0).astype(int)
         logging.info('writing {}.phased.vcf'.format(args.tumor_name))
         if t.vcf:
             write_phase_vcf(args.tumor_name+'.phased.vcf',

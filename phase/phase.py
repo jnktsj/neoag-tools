@@ -230,9 +230,10 @@ def cluster_mutations(pos, p, cutoff):
     if len(pos) == 1:
         return set([(pos[0],)])
     gi = dict()
-    for x, y in itertools.combinations(pos, 2):
+    for pair in itertools.combinations(pos, 2):
+        x, y = tuple(sorted(pair))
         hx, hy = (x,), (y,)
-        if p[(x, y)] > cutoff:
+        if p[(x,y)] > cutoff:
             hx = hy = (x, y)
         gi[x] = gi.get(x,set()).union(hx)
         gi[y] = gi.get(y,set()).union(hy)
@@ -302,7 +303,8 @@ def phase_mutations(df, chrom,
     unp = 0
     phase_p = dict()
     vaf_p = dict()
-    for x, y in itertools.combinations(df.index, 2):
+    for pair in itertools.combinations(df.index, 2):
+        x, y = tuple(sorted(pair))
         phase_p[(x,y)], vaf_p[(x,y)] = calc_phase_prob(t_reads[x],
                                                        t_reads[y],
                                                        min_phased_altc)

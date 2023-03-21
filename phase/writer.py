@@ -82,7 +82,7 @@ def write_phase_vcf(outname, df, sample, extra_cols=[]):
                     altc = row['n_alt_count']
                     v.samples[n_name]['AD'] = (refc, altc)
                     v.samples[n_name]['DP'] = refc + altc
-                    v.samples[n_name]['AF'] = altc/max(float(refc+altc), 1)
+                    v.samples[n_name]['AF'] = altc/max(float(refc+altc),1.0)
                     v.samples[n_name]['GT'] = (0, 0)
                 if len(row['maf_idx']) > 1:
                     v.info['MNPVariantType'] = row['Variant_Type']
@@ -131,7 +131,7 @@ def write_phase_vcf_from_scratch(outname, t_name, n_name, df):
         altc = row['t_alt_count']
         tumor_format = [ str(refc)+','+str(altc),
                          str(refc+altc),
-                         str(altc/float(refc+altc)) ]
+                         str(altc/max(float(refc+altc),1.0)) ]
         v = [ row['Chromosome'],
               row['Start_position'],
               '.',
@@ -147,7 +147,7 @@ def write_phase_vcf_from_scratch(outname, t_name, n_name, df):
             altc = row['n_alt_count']
             normal_format = [ str(refc)+','+str(altc),
                               str(refc+altc),
-                              str(altc/float(refc+altc))]
+                              str(altc/max(float(refc+altc),1.0))]
             v.insert(len(v)-1, ';'.join(normal_format))
         fo.write('\t'.join(list(map(str,v)))+'\n')
     fo.close()

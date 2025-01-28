@@ -132,11 +132,18 @@ def write_phase_vcf_from_scratch(outname, t_name, n_name, df):
         tumor_format = [ str(refc)+','+str(altc),
                          str(refc+altc),
                          str(altc/max(float(refc+altc),1.0)) ]
+        
+        # dealing with indel vcf annotations
+        if row['Variant_Type']=='INS':
+            alt_allele = row['ref_context'][9]+row['Tumor_Seq_Allele']
+        elif row['Variant_Type']=='DEL':
+            alt_allele = row['ref_context'][9]
+        else: alt_allele = row['Tumor_Seq_Allele']
         v = [ row['Chromosome'],
               row['Start_position'],
               '.',
-              row['Reference_Allele'],
-              row['Tumor_Seq_Allele'],
+              (row['ref_context'][9] if row['Variant_Type']=='INS' else row['Reference_Allele']),
+              alt_allele,
               '.',
               'PASS',
               info_str,

@@ -26,9 +26,12 @@ RUN apt-get update && \
     apt-get -y autoclean  && \
     apt-get -y autoremove
 
-# Clone neoantigen phasing and translation tools
-RUN git clone https://github.com/jnktsj/neoag-tools.git && \
-    mv neoag-tools main && pip3 install -r /root/main/requirements.txt
+# # Clone neoantigen phasing and translation tools
+# RUN git clone https://github.com/jnktsj/neoag-tools.git && \
+#     mv neoag-tools main && pip3 install -r /root/main/requirements.txt
+
+COPY . /root/neoag-tools
+RUN mv neoag-tools main && pip3 install -r /root/main/requirements.txt
 
 # Deleting unneeded caches
 RUN rm -rf /var/lib/apt/lists/*

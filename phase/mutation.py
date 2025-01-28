@@ -11,7 +11,8 @@ required_maf_cols = OrderedDict({ 'Chromosome'      : str,
                                   'Tumor_Seq_Allele': str,
                                   'Variant_Type'    : str,
                                   't_alt_count'     : float,
-                                  't_ref_count'     : float })
+                                  't_ref_count'     : float,
+                                  'ref_context'     : str })
 
 optional_maf_cols = OrderedDict({ 'n_alt_count': float,
                                   'n_ref_count': float,

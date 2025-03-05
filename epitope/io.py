@@ -1,12 +1,14 @@
 import os
+from pathlib import Path
 import re
 import gzip
 from collections import OrderedDict
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from .seq import unpad_peptide
+from .seq import Seq, unpad_peptide
 
 
 # coding mutations
@@ -77,8 +79,8 @@ common_header = ['transcript_id',
                  'Protein_Change']
 
 
-def read_maf(maf, name, name_col):
-    if maf == None:
+def read_maf(maf: Union[str, Path, None], name: str, name_col: int):
+    if maf is None:
         return pd.DataFrame()
 
     # reading MAF in a primivie way to handle commend characters '#'
@@ -117,14 +119,14 @@ def read_maf(maf, name, name_col):
         df.loc[df['GermlineID'].isin(['nan','']), 'GermlineID'] = np.nan
         
     # subset MAF columns
-    maf_cols = required_cols.copy()
+    maf_cols: OrderedDict[str, Any] = required_cols.copy()
     for oc in optional_cols:
         if oc in df:
             maf_cols[oc] = optional_cols[oc]
     try:
         df = df[maf_cols.keys()].astype(maf_cols)
     except Exception as e:
-            raise KeyError(str(e).replace('index', 'MAF'))
+        raise KeyError(str(e).replace('index', 'MAF'))
 
     # process clone information if supplied
     if 'ClonalStructure' in df:
@@ -154,7 +156,6 @@ def read_rsem_gene(rsem_gene, transcript_list=[]):
     except IOError:
         raise Exception('cannot read: {}'.format(rsem_gene))
 
-    header = []
     for row in rsem_gene_fi:
         # skip comment lines if any
         if row.startswith('#'):
@@ -178,18 +179,18 @@ def read_rsem_gene(rsem_gene, transcript_list=[]):
     return gene_tpm
 
 
-def get_fasta_header(m, name, txid, clone=None):
+def get_fasta_header(m: pd.DataFrame, name: str, txid: str, clone: Optional[str]=None):
     gene = m['Hugo_Symbol'].unique()[0]
     nt = ';'.join(m['cDNA_Change'].unique())
     aa = ';'.join(m['Protein_Change'].unique())
-    if clone != None:
+    if clone is not None:
         return '|'.join([name, txid, gene, nt, aa, 'clone='+clone])
     else:
         return '|'.join([name, txid, gene, nt, aa])
 
 
-def write_fasta(fo, tumor_name, normal_name, muts, gmuts,
-                txid, wt, mt, aa_str, mt_str, exon_str, clone):
+def write_fasta(fo, tumor_name: str, normal_name: str, muts: pd.DataFrame, gmuts: pd.DataFrame,
+                txid: str, wt: Seq, mt: Seq, aa_str: str, mt_str: str, exon_str: str, clone: str):
     """
     Write peptide and cDNA fasta.
 
@@ -209,6 +210,9 @@ def write_fasta(fo, tumor_name, normal_name, muts, gmuts,
     Germline mutation filed will be only written if there are
     phased coding germline mutations.
     """
+    assert wt.aa is not None, 'Wild-type sequence was not translated before writing to the FASTA output!'
+    assert mt.aa is not None, 'Mutated sequence was not translated before writing to the FASTA output!'
+
     tumor_field = get_fasta_header(muts, tumor_name, txid, clone)
     normal_field = ''
     if not gmuts.empty:

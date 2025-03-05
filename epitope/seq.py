@@ -1,3 +1,4 @@
+from typing import Any, Optional, Tuple
 import pandas as pd
 
 # standard code (transl_table=1)
@@ -80,7 +81,14 @@ def create_codon_table(file_path):
 
 complement = str.maketrans("ACGTRYKMBDHV", "TGCAYRMKVHDB")
 class Seq:
-    def __init__(self, seq):
+    """A class holding a nucleotide sequence.
+    """
+    seq: str
+    """The nucleotide sequence."""
+    aa: Optional[str]
+    """An amino acid sequence corresponding to the translated peptide sequence."""
+
+    def __init__(self, seq: str):
         self.seq = seq.upper()
         self.aa = None
         
@@ -88,12 +96,25 @@ class Seq:
         self.seq = self.seq[::-1].translate(complement)
         return self.seq
 
-    def translate(self, start=None, end=None, codon_table=standard_code, padchar=''):
-        if start == None:
+    def translate(self, start: Optional[int]=None, end: Optional[int]=None, codon_table=standard_code, padchar='') -> Tuple[str, int]:
+        """
+        Translates the sequence from a nucleotide sequence to an amino acid sequence.
+
+        Args:
+            start (int, optional): The starting nucleotide. Defaults to 0.
+            end (int, optional): The final nucleotide. Defaults to the end of the sequence.
+            codon_table (int, optional): A codon table used to translate nucleotides to amino acids. Defaults to standard_code.
+            padchar (str, optional): _description_. Defaults to ''.
+
+        Returns:
+            A tuple, containing the translated sequence and the number of untranslated nucleotides remaining.
+        """
+        if start is None:
             start = 0
-        if end == None:
+        if end is None:
             end = len(self.seq)
         peptide = ''
+        i = start
         for i in range(start, end, 3):
             aa = '*'
             c = self.seq[i:min(i+3, end)]

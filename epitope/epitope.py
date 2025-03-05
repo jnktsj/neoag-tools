@@ -3,7 +3,8 @@ import copy
 import re
 import logging
 import itertools
-from collections import OrderedDict
+import argparse
+import sys
 
 import numpy as np
 import pandas as pd
@@ -11,50 +12,50 @@ import pandas as pd
 from .seq import Seq
 from .seq import standard_code
 from .seq import create_codon_table
-from .io import *
+from .io import write_neoorf, write_peptide, write_fasta, read_rsem_gene, read_maf, neoorf_header, common_header, neoorf_mut_class, peptide_header, coding_mut_class
 from .gtf import Annotation
 
 
-def check_input_args(args):
+def validate_path(name: str, path: str | None, is_required=True):
+    """
+    Checks that the path is present.
+
+    Args:
+        name (str): The name of the object pointed to by the path.
+        path (str): A path to a necessary file.
+    """
+    if path is None:
+        if is_required:
+            raise Exception(f'Provide {name}')
+    else:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f'{name} not found: {path}')
+
+
+def check_input_args(args: argparse.Namespace):
     """
     Check input parameters
     """
     # check required arguments
-    if args.ref_fasta == None:
-        raise Exception('provide reference FASTA')
-    if not os.path.exists(args.ref_fasta):
-        raise FileNotFoundError('reference FASTA not found: '+args.ref_fasta)
+    validate_path('reference FASTA', args.ref_fasta)
+    validate_path('input MAF', args.input_maf)
+    validate_path('gene annotation GTF', args.gtf)
+    validate_path('codon table', args.codon_table, is_required=False)
+    validate_path('gene expression matrix', args.gene_expr, is_required=False)
 
-    if args.tumor_name == None:
+    if args.tumor_name is None:
         raise Exception('provide tumor sample name in the input MAF')
     
-    if args.input_maf == None:
-        raise Exception('provide input MAF')
-    if not os.path.exists(args.input_maf):
-        raise FileNotFoundError('input MAF not found: '+args.input_maf)
-
-    if args.gtf == None:
-        raise Exception('provide gene annotation GTF')
-    if not os.path.exists(args.gtf):
-        raise FileNotFoundError('gene annotation GTF not found: '+args.gtf)
 
     # check optional arguments
     if args.normal_name or args.germline_maf:
-        if args.normal_name == None:
+        if args.normal_name is None:
             raise Exception('provide normal sample name')
-        if args.germline_maf == None:
+        if args.germline_maf is None:
             raise Exception('cannot find germline MAF')
         if not os.path.exists(args.germline_maf):
             raise FileNotFoundError('germline MAF not found: '+args.germline_maf)
-
-    if args.codon_table:
-        if not os.path.exists(args.codon_table):
-            raise FileNotFoundError('codon table not found: '+args.codon_table)
         
-    if args.gene_expr:
-        if not os.path.exists(args.gene_expr):
-            raise FileNotFoundError('gene expression matrix not found: '+args.gene_expr)
-
     if args.flank_peplen < 0:
         raise ValueError('invalid peptide upstream/downstream length; provide a value larger than or equal to 0')
     
@@ -69,20 +70,19 @@ def check_input_args(args):
             raise ValueError('invalid peptide length: {} ({})'.format(p, args.peptide_length))
 
 
-def mutate_sequence(txid, seq, pos, muts):
+def mutate_sequence(txid, seq, pos, muts: pd.DataFrame):
     mut_seq = copy.deepcopy(seq)
     idx_seq = [[-1 for x in s] for s in mut_seq]
     for x, m in muts.iterrows():
         ref = m['Reference_Allele']
         alt = m['Tumor_Seq_Allele']
-        start = None
         for index in range(len(pos)):
             if pos[index].start <= m['Start_position'] and m['Start_position'] <= pos[index].end:
                 start = m['Start_position'] - pos[index].start
                 break
-        if start == None:
+        else:
             if m['Variant_Classification'] in coding_mut_class:
-                logging.warn('skipping {}:{}; position not in {}'.format(
+                logging.warning('skipping {}:{}; position not in {}'.format(
                     m['Chromosome'], m['Start_position'], txid
                 ))
             continue
@@ -101,7 +101,7 @@ def mutate_sequence(txid, seq, pos, muts):
                 mut_seq[index][i] = mb + mut_seq[index][i][1:]
                 idx_seq[index][i] = x
         else:
-            logging.warn('unknown variant type: ' + m['Variant_Type'])
+            logging.warning('unknown variant type: ' + m['Variant_Type'])
     return mut_seq, idx_seq
 
 
@@ -131,13 +131,24 @@ def get_mutation_notation(wt, mt, idx):
     return mt_str, mt_idx
 
 
-def get_peptide_notation(wt, mt):
-    aa_str = ''
+def get_peptide_notation(wt: str, mt: str) -> str:
+    """
+    Generates a string graphically showing the differences between a wild-type sequence and a mutated sequence.
+
+    Args:
+        wt (str): A wild-type sequence.
+        mt (str): A mutated sequence.
+
+    Returns:
+        str: A string with ' ' where the WT and mutated sequences match, and '*' where they don't.
+    """
+    return ''.join('*' if w == m else ' ' for w, m in zip(wt, mt))
+    aa_str = ""
     for i in range(min(len(wt), len(mt))):
         if wt[i] != mt[i]:
-            aa_str += '*'
+            aa_str += "*"
         else:
-            aa_str += ' '
+            aa_str += " "
     return aa_str
 
 
@@ -148,7 +159,7 @@ def translate_mutation(fo_fasta, fo_peptide, fo_neoorf, tumor_name, smuts,
         for txid in smuts[cl]['tx']:
             tx = gtf.transcripts[txid]
             if tx.is_coding == False:
-                logging.warn('skipping {}; CDS not defined'.format(txid))
+                logging.warning('skipping {}; CDS not defined'.format(txid))
                 continue
                 
             seq, pos, exon_str = tx.raw_cds_with_downstream(genome)
@@ -189,11 +200,11 @@ def translate_mutation(fo_fasta, fo_peptide, fo_neoorf, tumor_name, smuts,
                 seq = seq[::-1]
                 mseq = mseq[::-1]
 
-            wt_seq.translate(codon_table=codon_table, padchar=' ')
-            mt_seq.translate(codon_table=codon_table, padchar=' ')
+            wt_aa, _ = wt_seq.translate(codon_table=codon_table, padchar=' ')
+            mt_aa, _ = mt_seq.translate(codon_table=codon_table, padchar=' ')
 
             mt_str, mt_idx = get_mutation_notation(seq, mseq, midx)
-            aa_str = get_peptide_notation(wt_seq.aa, mt_seq.aa)
+            aa_str = get_peptide_notation(wt_aa, mt_aa)
                 
             write_fasta(fo_fasta, tumor_name, normal_name,
                         smuts[cl]['mut'].loc[mx], gmuts.loc[gx], txid,
@@ -245,7 +256,7 @@ def run(args):
     # exit if there are no coding transcripts with return code 0
     row = dfs['Variant_Classification'].isin(coding_mut_class)
     if sum(row) == 0:
-        logging.warn('no coding mutations found! exiting...')
+        logging.warning('no coding mutations found! exiting...')
         sys.exit(0)
     transcripts = list(dfs.loc[row, 'Annotation_Transcript'].unique())
 

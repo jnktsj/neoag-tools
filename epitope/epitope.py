@@ -311,10 +311,10 @@ def run(args):
                 cs = x['ClonalStructure'].apply(lambda clstr: cl in clstr)
                 xi = x.loc[cs].copy()
                 # avoid a clone composed of all non-coding mutations
+                xi = xi.sort_values('Start_position', ignore_index=True)
                 is_coding_muts = xi['Variant_Classification'].isin(coding_mut_class)
                 if sum(is_coding_muts) == 0:
                     continue
-                xi = xi.sort_values('Start_position', ignore_index=True)
                 tx = set(list(xi.loc[is_coding_muts, 'Annotation_Transcript']))
                 smuts.setdefault(cl, {'mut':xi, 'tx':tx})
         else:

@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import gzip
 from collections import OrderedDict
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -258,10 +258,33 @@ def write_fasta(
 
 
 def write_peptide(
-    fo, smuts, clone, wt, mt, mstr, idx, name, txid, gnid, tpm, flen, pep_lens
+    fo, smuts: pd.DataFrame, clone: str, wt: Seq, mt: Seq, mstr: str, idx: Dict[int, Tuple[int, int]], name: str, txid: str, gnid: str, tpm: str, flen: int, pep_lens: List[int]
 ):
+    """
+    Write the given peptide to the output file.
+
+    Args:
+        fo: An open pipe, writing to the output file.
+        smuts (pd.DataFrame): A dataframe containing a set of mutations.
+        clone (str): The clone from the clonal structure of the mutations.
+        wt (Seq): The wild-type sequence.
+        mt (Seq): The mutated sequence.
+        mstr (str): The representation of the differences between the wild-type and the mutation, produced by `get_peptide_notation`.
+        idx (Dict[int, Tuple[int, int]]): A map from some indices to spans of mutated regions (In which sequence?).
+        name (str): The tumor name.
+        txid (str): ???
+        gnid (str): The ID of the gene.
+        tpm (str): The expression level of the transcript in TPM?
+        flen (int): The length of the flanking regions.
+        pep_lens (List[int]): The lengths of peptides to take from the transcript.
+    """
+    assert wt.aa is not None
+    assert mt.aa is not None
+
     flank_length = flen + max(pep_lens) - 1
-    for index, m in smuts.iterrows():
+
+    index: int
+    for index, m in smuts.iterrows():  # type: ignore
         start, end = idx[index]
         start = start - start % 3 + 1
         end = (end - 1) - (end - 1) % 3 + 1

@@ -104,7 +104,7 @@ class Seq:
             start (int, optional): The starting nucleotide. Defaults to 0.
             end (int, optional): The final nucleotide. Defaults to the end of the sequence.
             codon_table (int, optional): A codon table used to translate nucleotides to amino acids. Defaults to standard_code.
-            padchar (str, optional): _description_. Defaults to ''.
+            padchar (str, optional): A padding character between the amino acid codes. Defaults to ''.
 
         Returns:
             A tuple, containing the translated sequence and the number of untranslated nucleotides remaining.
@@ -131,6 +131,15 @@ class Seq:
         return peptide, end-min(i+3,end)
 
 
-def unpad_peptide(aa):
+def unpad_peptide(aa) -> str:
+    """
+    Removes spaces from the peptide and trims terminating signals (*).
+
+    Args:
+        aa (str): A string encoding a peptide.
+
+    Returns:
+        str: A string encoding the same peptide without terminating codons and spaces.
+    """
     return aa.replace(' ', '').rstrip('*')
 

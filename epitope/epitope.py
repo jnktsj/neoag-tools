@@ -69,10 +69,25 @@ def check_input_args(args: argparse.Namespace):
             raise ValueError('invalid peptide length: {} ({})'.format(p, args.peptide_length))
 
 
-def mutate_sequence(txid, seq: List[List[str]], pos: List[Locus], muts: pd.DataFrame):
+def mutate_sequence(txid: str, seq: List[List[str]], pos: List[Locus], muts: pd.DataFrame) -> Tuple[List[List[str]], List[List[int]]]:
+    """
+    Applies mutations to the given sequence.
+
+    Args:
+        txid (str): The trancript ID.
+        seq (List[List[str]]): The sequence, represented as a list of the coding regions and the UTR.
+        pos (List[Locus]): The loci of the coding regions and the UTRs.
+        muts (pd.DataFrame): A dataframe containing the mutation data.
+
+    Returns:
+        Tuple: A tuple, containing the mutated sequence in the same format as the input sequence, and the mutation IDs, represented as a list of lists of ints, 
+        where each int represents the mutation ID that affected the corresponding bases.
+    """
     mut_seq = copy.deepcopy(seq)
     idx_seq = [[-1 for _ in s] for s in mut_seq]
-    for x, m in muts.iterrows():
+
+    x: int
+    for x, m in muts.iterrows():  # type: ignore
         ref = m['Reference_Allele']
         alt = m['Tumor_Seq_Allele']
         for index in range(len(pos)):
@@ -112,10 +127,11 @@ def get_mutation_notation(wt: List[str], mt: List[str], idx: List[int]) -> Tuple
     Args:
         wt (List[str]): The wild-type sequence, represented as aligned chunks.
         mt (List[str]): The mutated sequence, represented as aligned chunks.
-        idx (_type_): A map from the aligned chunk index to the index in the sequence.
-
+        idx (List[int]): A list of the mutation IDs of every position, or -1 if the position is not mutated.
     Returns:
-        Tuple[str, Dict[int, Tuple[int, int]]]: A tuple containing the mutation representation, and a map from the mutation positions to the mutated spans.
+        Tuple: A tuple containing:
+          * The mutation representation
+          * A map from the mutation IDs to the mutated spans.
     """
 
     mt_str = ''
@@ -135,7 +151,9 @@ def get_mutation_notation(wt: List[str], mt: List[str], idx: List[int]) -> Tuple
             mt_str += ' '*len(wt_base)
             
     # move sequential deletion characters to deletion edges
+    # TODO: This seems wrong, and would bring a lot of things out of alignment.
     mt_str = re.sub(' d+ ', 'dd', mt_str)
+
 
     mt_idx = {}
     for i, m in enumerate(re.finditer('[mdi]+', mt_str)):
@@ -166,17 +184,19 @@ def get_peptide_notation(wt: str, mt: str) -> str:
 
 
 def translate_mutation(fo_fasta, fo_peptide, fo_neoorf, tumor_name, smuts,
-                       normal_name, gmuts, gtf, gene_tpm, flank_length,
+                       normal_name, gmuts, gtf: Annotation, gene_tpm, flank_length,
                        peptide_lengths, genome, codon_table):
     for cl in smuts:
         for txid in smuts[cl]['tx']:
+            if txid not in gtf.transcripts:
+                logging.warning(f'Skipping the transcript {txid}; not in the GTF file')
+                continue
             tx: Transcript = gtf.transcripts[txid]
             if not tx.is_coding:
-                logging.warning('skipping {}; CDS not defined'.format(txid))
+                logging.warning(f'Skipping the transcript {txid}; CDS not defined')
                 continue
                 
             seq, pos, exon_str = tx.raw_cds_with_downstream(genome)
-
             # get coding mutation index
             vc_i = smuts[cl]['mut']['Variant_Classification'].isin(coding_mut_class)
             at_i = smuts[cl]['mut']['Annotation_Transcript'] == txid

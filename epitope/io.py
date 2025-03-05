@@ -84,7 +84,7 @@ def read_maf(maf: Union[str, Path, None], name: str, name_col: str):
     if maf is None:
         return pd.DataFrame()
 
-    # reading MAF in a primivie way to handle commend characters '#'
+    # reading MAF in a primitive way to handle command characters '#'
     # in the middle of the line which pd.read_csv couldn't handle
     header = []
     record = []
@@ -270,7 +270,7 @@ def write_peptide(
         wt (Seq): The wild-type sequence.
         mt (Seq): The mutated sequence.
         mstr (str): The representation of the differences between the wild-type and the mutation, produced by `get_peptide_notation`.
-        idx (Dict[int, Tuple[int, int]]): A map from some indices to spans of mutated regions (In which sequence?).
+        idx (Dict[int, Tuple[int, int]]): A map from some indices to spans of mutated regions (In which sequence?). These are produced by `get_mutation_notation`.
         name (str): The tumor name.
         txid (str): ???
         gnid (str): The ID of the gene.
@@ -288,13 +288,19 @@ def write_peptide(
         start, end = idx[index]
         start = start - start % 3 + 1
         end = (end - 1) - (end - 1) % 3 + 1
+        
+        indices = range(start, min(len(mstr), end), 3)
+        # The mutated range can theoretically be in a non-coding sequence, in which case we need to ignore it as it has no transcript.
+        if len(indices) == 0:
+            continue
 
         # adjust reading frame for shifted amino acid mismatches
-        for i in range(start, len(mstr), 3):
+        for i in indices:
             if mstr[i] == "*":
                 start = i
                 break
-        for i in range(end, start - 3, -3):
+            
+        for i in reversed(indices):
             if mstr[i] == "*":
                 end = i
 

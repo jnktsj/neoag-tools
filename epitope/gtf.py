@@ -122,16 +122,18 @@ class Transcript:
 
     def raw_cds_with_downstream(
         self, genome: str
-    ) -> Tuple[List[str], List[Locus], str]:
+    ) -> Tuple[List[List[str]], List[Locus], str]:
         """
         Args:
             genome (str): The path to the reference genome.
 
         Returns:
-            Tuple[List[str], List[Locus], str]: A tuple, containing the CDS and the downstream UTR genomic sequences and positions as arrays
-            and the exon boundary string as a string.
+            Tuple:
+             * The CDS and downstream UTR, represented as a list of the sequences, each of which is a list of nucleotides.
+             * The list of loci of the CDS and downstream UTR.
+             * The exon boundary string as a string.
         """
-        seq: List[str] = []
+        seq: List[List[str]] = []
         pos: List[Locus] = []
         exon_str = ""
         if not self.is_coding:
@@ -195,6 +197,7 @@ class Annotation:
     """
     Parse GTF file and create transcript data
     """
+    transcripts: Dict[str, Transcript]
 
     def __init__(self, gtf_path, transcript_list=[]):
         self.transcripts = dict()

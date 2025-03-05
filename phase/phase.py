@@ -288,6 +288,7 @@ def phase_mutations(df, chrom,
     """
     Look at reads supporting candidate mutations to determine phasing
     """
+    print(df)
     global PHASE_ID
     df = df.reset_index(drop=True)
     g = pysam.FastaFile(genome)
@@ -489,7 +490,6 @@ def run(args):
     # use the original chromosome order (i.e. sort = False)
     for chrom, df in m.muts.groupby('Chromosome', sort=False):
         logging.info('processing chromosome {}'.format(chrom))
-        
         df = group_mutations(df, args.max_phase_radius,
                              'PhaseID', args.min_coverage)
         df = group_mutations(df, args.max_mnp_size,
@@ -526,6 +526,10 @@ def run(args):
                                           args.max_phase_radius,
                                           args.min_base_quality,
                                           args.min_map_quality)
+            dfs.drop_duplicates(inplace=True)
+            dfs.sort_values('Start_position', ignore_index=True, inplace=True)
+            dfg.drop_duplicates(inplace=True)
+            dfg.sort_values('Start_position', ignore_index=True, inplace=True)
             gmuts.append(dfg)
 
         smuts.append(dfs)

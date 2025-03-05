@@ -24,6 +24,7 @@ def write_phase_vcf(outname, df, sample, extra_cols=[]):
     write out VCF file based on supplied index values
     the function reuses the original VCF information
     """
+    assert len(df.drop_duplicates()) == len(df)
     rvcf = pysam.VariantFile(sample.vcf, 'r')
     t_name = sample.vcf_sm
     n_name = set(rvcf.header.samples).difference(set([t_name]))
@@ -56,7 +57,7 @@ def write_phase_vcf(outname, df, sample, extra_cols=[]):
                              number=1,
                              type='String',
                              description='Block ID for phased germline and somatic variants')
-    ovcf = pysam.VariantFile(outname, 'w', header=rvcf.header)                             
+    ovcf = pysam.VariantFile(outname, 'w', header=rvcf.header)
     for _, row in df.iterrows():
         alt = row['Tumor_Seq_Allele']
         mut_type = row['Variant_Type']

@@ -288,7 +288,6 @@ def phase_mutations(df, chrom,
     """
     Look at reads supporting candidate mutations to determine phasing
     """
-    print(df)
     global PHASE_ID
     df = df.reset_index(drop=True)
     g = pysam.FastaFile(genome)
@@ -526,9 +525,9 @@ def run(args):
                                           args.max_phase_radius,
                                           args.min_base_quality,
                                           args.min_map_quality)
-            dfs.drop_duplicates(inplace=True)
+            dfs.drop_duplicates(subset=['Chromosome',  'Start_position', 'Reference_Allele', 'Tumor_Seq_Allele'], inplace=True)
             dfs.sort_values('Start_position', ignore_index=True, inplace=True)
-            dfg.drop_duplicates(inplace=True)
+            dfg.drop_duplicates(subset=['Chromosome',  'Start_position', 'Reference_Allele', 'Tumor_Seq_Allele'], inplace=True)
             dfg.sort_values('Start_position', ignore_index=True, inplace=True)
             gmuts.append(dfg)
 

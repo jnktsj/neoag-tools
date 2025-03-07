@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import gzip
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -80,7 +80,20 @@ common_header = [
 ]
 
 
-def read_maf(maf: Union[str, Path, None], name: str, name_col: str):
+def read_maf(maf: Union[str, Path, None], name: str, name_col: str) -> pd.DataFrame:
+    """
+    Reads a MAF file into a pandas DataFrame.
+    The MAF files handled both use # as a way to mark comments and as a character inside fields,
+    which would confuse pd.read_csv.
+
+    Args:
+        maf (Union[str, Path, None]): The path to the MAF file.
+        name (str): The name of the sample.
+        name_col (str): The name of the column where names are stored.
+
+    Returns:
+        pd.DataFrame: A DataFrame holding the MAF data.
+    """
     if maf is None:
         return pd.DataFrame()
 
@@ -134,14 +147,12 @@ def read_maf(maf: Union[str, Path, None], name: str, name_col: str):
         df.loc[df["ClonalStructure"].isin(["nan", ""]), "ClonalStructure"] = (
             np.nan
         )
+
         i = ~df["ClonalStructure"].isna()
-        make_set = lambda x: set(
-            [
-                xi.strip()
-                for xi in re.sub("\[|\]", "", x).split(",")
-                if xi.strip().isnumeric()
-            ]
-        )
+        def make_set(x):
+            """Converts a string of the form "[a, b, c]" to a set {a, b, c}."""
+            return set([xi.strip() for xi in re.sub(r"\[|\]", "", x).split(",") if xi.strip().isnumeric()])
+        
         df.loc[i, "ClonalStructure"] = df.loc[i, "ClonalStructure"].apply(
             make_set
         )
@@ -149,7 +160,7 @@ def read_maf(maf: Union[str, Path, None], name: str, name_col: str):
     return df
 
 
-def read_rsem_gene(rsem_gene, transcript_list=[]):
+def read_rsem_gene(rsem_gene: str, transcript_list=[]):
     """
     Returns Transcript ID (without versioning) and TPM
     from RSEM gene expression matrix
@@ -203,7 +214,7 @@ def get_fasta_header(
 
 
 def write_fasta(
-    fo,
+    fo: TextIO,
     tumor_name: str,
     normal_name: str,
     muts: pd.DataFrame,
@@ -258,13 +269,13 @@ def write_fasta(
 
 
 def write_peptide(
-    fo, smuts: pd.DataFrame, clone: str, wt: Seq, mt: Seq, mstr: str, idx: Dict[int, Tuple[int, int]], name: str, txid: str, gnid: str, tpm: str, flen: int, pep_lens: List[int]
+    fo: TextIO, smuts: pd.DataFrame, clone: str, wt: Seq, mt: Seq, mstr: str, idx: Dict[int, Tuple[int, int]], name: str, txid: str, gnid: str, tpm: str, flen: int, pep_lens: List[int]
 ):
     """
     Write the given peptide to the output file.
 
     Args:
-        fo: An open pipe, writing to the output file.
+        fo (TextIO): An open pipe, writing to the output file.
         smuts (pd.DataFrame): A dataframe containing a set of mutations.
         clone (str): The clone from the clonal structure of the mutations.
         wt (Seq): The wild-type sequence.
@@ -394,8 +405,9 @@ def write_peptide(
                 )
 
 
-def write_neoorf(fo, smuts, clone, wt, mt, mstr, idx, name, txid, gnid, tpm):
-    for index, m in smuts.iterrows():
+def write_neoorf(fo: TextIO, smuts: pd.DataFrame, clone: str, wt: Seq, mt: Seq, mstr: str, idx: Dict[int, Tuple[int, int]], name: str, txid: str, gnid: str, tpm: str):
+    index: int
+    for index, m in smuts.iterrows():  # type: ignore
         start, end = idx[index]
         start = start - start % 3 + 1
         end = (end - 1) - (end - 1) % 3 + 1
@@ -406,6 +418,8 @@ def write_neoorf(fo, smuts, clone, wt, mt, mstr, idx, name, txid, gnid, tpm):
                 if mstr[i] == "*":
                     start = i
                     break
+
+        assert mt.aa is not None
         neoorf = unpad_peptide(mt.aa[start:])
         upstream = unpad_peptide(mt.aa[:start])
         neoorf_start = len(upstream) + 1

@@ -1,5 +1,4 @@
-from typing import Any, Optional, Tuple
-import pandas as pd
+from typing import Dict, Optional, Tuple
 
 # standard code (transl_table=1)
 standard_code = {
@@ -41,7 +40,7 @@ mitochondrial_code = {
     'TTA': 'L', 'TTC': 'F', 'TTG': 'L', 'TTT': 'F'
   }
 
-def create_codon_table(file_path):
+def create_codon_table(file_path: str) -> Dict[str, str]:
     """
     The above pre-compiled codon table is standard genetic code.
     If your organism or organelle (e.g. mitochondria, plastid) uses
@@ -81,7 +80,8 @@ def create_codon_table(file_path):
 
 complement = str.maketrans("ACGTRYKMBDHV", "TGCAYRMKVHDB")
 class Seq:
-    """A class holding a nucleotide sequence.
+    """
+    A class holding a nucleotide sequence.
     """
     seq: str
     """The nucleotide sequence."""
@@ -92,18 +92,20 @@ class Seq:
         self.seq = seq.upper()
         self.aa = None
         
-    def reverse_complement(self):
-        self.seq = self.seq[::-1].translate(complement)
-        return self.seq
+    def reverse_complement(self) -> 'Seq':
+        """
+        Returns the reverse-complement of the nucleotide sequence.
+        """
+        return Seq(self.seq[::-1].translate(complement))
 
-    def translate(self, start: Optional[int]=None, end: Optional[int]=None, codon_table=standard_code, padchar='') -> Tuple[str, int]:
+    def translate(self, start: Optional[int]=None, end: Optional[int]=None, codon_table: Dict[str, str]=standard_code, padchar='') -> Tuple[str, int]:
         """
         Translates the sequence from a nucleotide sequence to an amino acid sequence.
 
         Args:
             start (int, optional): The starting nucleotide. Defaults to 0.
             end (int, optional): The final nucleotide. Defaults to the end of the sequence.
-            codon_table (int, optional): A codon table used to translate nucleotides to amino acids. Defaults to standard_code.
+            codon_table (Dict[str, str], optional): A codon table used to translate nucleotides to amino acids. Defaults to standard_code.
             padchar (str, optional): A padding character between the amino acid codes. Defaults to ''.
 
         Returns:

@@ -5,7 +5,7 @@ import logging
 import itertools
 import argparse
 import sys
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, TextIO, Tuple
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,7 @@ from .seq import Seq, standard_code, create_codon_table
 from .io import write_neoorf, write_peptide, write_fasta, read_rsem_gene, read_maf, neoorf_header, common_header, neoorf_mut_class, peptide_header, coding_mut_class
 from .gtf import Annotation, Transcript, Locus
 
+VALID_PEPTIDE_LENGTHS = [8, 9, 10, 11]
 
 def validate_path(name: str, path: str | None, is_required=True):
     """
@@ -50,10 +51,7 @@ def check_input_args(args: argparse.Namespace):
     if args.normal_name or args.germline_maf:
         if args.normal_name is None:
             raise Exception('provide normal sample name')
-        if args.germline_maf is None:
-            raise Exception('cannot find germline MAF')
-        if not os.path.exists(args.germline_maf):
-            raise FileNotFoundError('germline MAF not found: '+args.germline_maf)
+        validate_path('germline MAF', args.germline_maf)
         
     if args.flank_peplen < 0:
         raise ValueError('invalid peptide upstream/downstream length; provide a value larger than or equal to 0')
@@ -63,10 +61,10 @@ def check_input_args(args: argparse.Namespace):
     for p in args.peptide_length.split(','):
         try:
             pep_len = int(p)
-            if pep_len not in [8, 9, 10, 11]:
-                raise ValueError('invalid peptide length: {} ({})'.format(p, args.peptide_length))
+            if pep_len not in VALID_PEPTIDE_LENGTHS:
+                raise ValueError(f'invalid peptide length: {p} ({args.peptide_length})')
         except ValueError:
-            raise ValueError('invalid peptide length: {} ({})'.format(p, args.peptide_length))
+            raise ValueError(f'invalid peptide length: {p} ({args.peptide_length})')
 
 
 def mutate_sequence(txid: str, seq: List[List[str]], pos: List[Locus], muts: pd.DataFrame) -> Tuple[List[List[str]], List[List[int]]]:
@@ -183,9 +181,9 @@ def get_peptide_notation(wt: str, mt: str) -> str:
     return aa_str
 
 
-def translate_mutation(fo_fasta, fo_peptide, fo_neoorf, tumor_name, smuts,
-                       normal_name, gmuts, gtf: Annotation, gene_tpm, flank_length,
-                       peptide_lengths, genome, codon_table):
+def translate_mutation(fo_fasta: TextIO, fo_peptide: TextIO, fo_neoorf: TextIO, tumor_name: str, smuts: Dict[str, Dict[str, Any]],
+                       normal_name: str, gmuts: pd.DataFrame, gtf: Annotation, gene_tpm: Dict[str, str], flank_length: int,
+                       peptide_lengths: List[int], genome: str, codon_table: Dict[str, str]):
     for cl in smuts:
         for txid in smuts[cl]['tx']:
             if txid not in gtf.transcripts:
@@ -222,8 +220,8 @@ def translate_mutation(fo_fasta, fo_peptide, fo_neoorf, tumor_name, smuts,
             mt_seq = Seq(''.join(mseq))
                 
             if tx.pos.strand == "-":
-                wt_seq.reverse_complement()
-                mt_seq.reverse_complement()
+                wt_seq = wt_seq.reverse_complement()
+                mt_seq = mt_seq.reverse_complement()
                 exon_str = exon_str[::-1]
                 midx = midx[::-1]
                 mx = mx[::-1]
@@ -329,8 +327,8 @@ def run(args):
         if i in analyzed:
             continue
         
-        index = [i]
-        if pd.isna(mut['PhaseID']) == False:
+        index: List[Any] = [i]
+        if not pd.isna(mut['PhaseID']):
             index.extend(list(dfs[dfs['PhaseID']==mut['PhaseID']].index))
             index = sorted(set(index))
         x = dfs.loc[index].reset_index(drop=True).copy()

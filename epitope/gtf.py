@@ -1,16 +1,34 @@
 import gzip
 from typing import Any, Dict, List, Optional, Tuple
 import pysam
-import numpy as np
 
 from .seq import Seq
 
+"""
+GTF organizes the transcript data hierarchically, with the organization levels being:
+1. Gene
+2. Transcript
+3. Exon
+
+The order by which the rows introduce new elements is a DFS on this tree.
+Every element is associated with a span of the genome, corresponding to the coding sequence for an exon, 
+or the span containing all child nodes for an object higher in the hierarchy.
+"""
+
 
 class Locus:
+    """
+    A substring of one of the DNA strands.
+    """
+
     name: str
+    """The name of the locus."""
     start: int
+    """The start position."""
     end: int
+    """The end position."""
     strand: str
+    """Whether the locus is on the + or - strand."""
     offset: int
 
     def __init__(self, name: str, start, end, strand, offset=1):
@@ -96,7 +114,7 @@ class Transcript:
         fa.close()
         mrna = Seq(seq)
         if self.pos.strand == "-":
-            mrna.reverse_complement()
+            mrna = mrna.reverse_complement()
         fa.close()
         return mrna.seq
 
@@ -116,7 +134,7 @@ class Transcript:
         fa.close()
         cds = Seq(seq)
         if self.pos.strand == "-":
-            cds.reverse_complement()
+            cds = cds.reverse_complement()
         fa.close()
         return cds.seq
 
@@ -197,6 +215,7 @@ class Annotation:
     """
     Parse GTF file and create transcript data
     """
+
     transcripts: Dict[str, Transcript]
 
     def __init__(self, gtf_path, transcript_list=[]):
@@ -214,7 +233,7 @@ class Annotation:
         transcript_id = None
         gene_read = 0
         g = None
-
+        t = None
         for row in gtf:
             # skip comment lines
             if row.startswith("#"):
@@ -278,6 +297,7 @@ class Annotation:
                     self.transcripts.setdefault(transcript_id, t)
 
             elif feature == "exon":
+                assert t is not None
                 if skip_transcript:
                     continue
                 if "exon_id" not in attr:

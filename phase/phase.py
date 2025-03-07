@@ -2,6 +2,8 @@ import os
 import logging
 import itertools
 from collections import OrderedDict
+from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,20 +28,20 @@ def check_input_args(args):
     Check input parameters
     """
     # check required arguments
-    if args.ref_fasta == None:
+    if args.ref_fasta is None:
         raise Exception('provide reference FASTA')
     if not os.path.exists(args.ref_fasta):
         raise FileNotFoundError('reference FASTA not found: '+args.ref_fasta)
     
-    if args.input_maf == None:
+    if args.input_maf is None:
         raise Exception('provide input MAF')
     if not os.path.exists(args.input_maf):
         raise FileNotFoundError('input MAF not found: '+args.input_maf)
     
-    if args.tumor_name == None:
+    if args.tumor_name is None:
         raise Exception('provide tumor sample name in the input MAF')
 
-    if args.tumor_bam == None:
+    if args.tumor_bam is None:
         raise Exception('provide tumor BAM')
     if not os.path.exists(args.tumor_bam):
         raise FileNotFoundError('tumor BAM not found: '+args.tumor_bam)
@@ -50,13 +52,13 @@ def check_input_args(args):
             raise FileNotFoundError('tumor VCF not found')
 
     if args.normal_name or args.normal_bam or args.normal_vcf:
-        if args.normal_name == None:
+        if args.normal_name is None:
             raise Exception('provide normal sample name')
         if not (args.normal_bam and args.normal_vcf):
             raise Exception('provide both normal VCF and BAM')
-        if args.normal_bam == None:
+        if args.normal_bam is None:
             raise Exception('normal VCF provided, but cannot find normal BAM')
-        if args.normal_vcf == None:
+        if args.normal_vcf is None:
             raise Exception('normal BAM provided, but cannot find normal VCF')
         if not os.path.exists(args.normal_vcf):
             raise FileNotFoundError('normal VCF not found: '+args.normal_vcf)
@@ -64,9 +66,9 @@ def check_input_args(args):
             raise FileNotFoundError('normal BAM not found: '+args.normal_bam)
 
     if args.phylogic_ccfs or args.phylogic_tree:
-        if args.phylogic_ccfs == None:
+        if args.phylogic_ccfs is None:
             raise Exception('phylogic tree provided, but cannot find the CCF file')
-        if args.phylogic_tree == None:
+        if args.phylogic_tree is None:
             raise Exception('phylogic CCF provided, but cannot find the tree file')
         if not os.path.exists(args.phylogic_ccfs):
             raise FileNotFoundError('phylogic CCF not found: '+args.phylogic_ccfs)
@@ -119,7 +121,7 @@ def group_mutations(df, max_dist, group_id, min_cov, excl_indel=False):
 
 def get_read_names(x, g, bam, min_base_q, min_map_q):
     r = {'alt': set(), 'ref': set()}
-    if bam == None:
+    if bam is None:
         return r
     ref = x['Reference_Allele']
     alt = x['Tumor_Seq_Allele']
@@ -166,7 +168,7 @@ def get_read_names(x, g, bam, min_base_q, min_map_q):
                             rg = 'alt'
                             break
                         prev_block_end = block_end
-                    if rg == None and \
+                    if rg is None and \
                        dist_to_mut > 1 and \
                        base == g.fetch(chrom, pos, end):
                         rg = 'ref'
@@ -174,7 +176,7 @@ def get_read_names(x, g, bam, min_base_q, min_map_q):
                     if base == g.fetch(chrom, pos, end):
                         rg = 'ref'
             else: # point mutation
-                if base == None:
+                if base is None:
                     continue
                 offset = pileupcolumn.reference_pos - pos
                 alt_base = alt[offset]
@@ -278,9 +280,9 @@ def chain_mnps(cl, pos, df, mnp_dict, g, chrom, t_reads, n_reads):
     return mnp_dict
 
 
-def phase_mutations(df, chrom,
-                    t, n, genome,
-                    clonal_struct,
+def phase_mutations(df: pd.DataFrame, chrom: str,
+                    t: Sample, n: Sample, genome: str | Path,
+                    clonal_struct: ClonalStructure,
                     vaf_skew_pval,
                     min_phased_altc,
                     min_base_q,
@@ -402,14 +404,15 @@ def phase_mutations(df, chrom,
     return df.reset_index(drop=True)
 
 
-def integrate_germline(df, chrom, t, n, genome, max_dist, min_base_q, min_map_q):
+def integrate_germline(df: pd.DataFrame, chrom: str, t: Sample, n: Sample, genome: str | Path, max_dist: int, min_base_q, min_map_q) -> Tuple[pd.DataFrame, pd.DataFrame]:
     global GERMLINE_ID
     germline = []
     gm_size = len(germline)
     g = pysam.FastaFile(genome)
     vcf = pysam.VariantFile(n.vcf, 'r')
     tbam = pysam.AlignmentFile(t.bam, 'rb')
-    for i, row in df.iterrows():
+    i: int 
+    for i, row in df.iterrows():  # type: ignore
         GERMLINE_ID += 1
         alt = row['Tumor_Seq_Allele']
         mut_type = row['Variant_Type']
@@ -423,7 +426,7 @@ def integrate_germline(df, chrom, t, n, genome, max_dist, min_base_q, min_map_q)
         
         t_reads = get_read_names(row, g, tbam, min_base_q, min_map_q)['alt']
         for v in var_list:
-            if not 'PASS' in v.filter:
+            if 'PASS' not in v.filter:
                 continue
             allele_depth = v.samples[n.vcf_sm]['AD']
             for j, gm_alt in enumerate(v.alts):
@@ -434,8 +437,9 @@ def integrate_germline(df, chrom, t, n, genome, max_dist, min_base_q, min_map_q)
                     gm_mut_type = MNP_TYPE.get(len(alt), 'MNP')
                 elif len(v.ref) > len(gm_alt):
                     gm_mut_type = 'DEL'
-                elif len(v.ref) < len(gm_alt):
+                else:
                     gm_mut_type = 'INS'
+
                 gm = {
                     'Chromosome': v.chrom,
                     'Start_position': v.pos,
@@ -479,7 +483,7 @@ def run(args):
                  args.phylogic_tree,
                  args.phylogic_index)
 
-    if 'n_alt_count' in m.muts and n.bam == None:
+    if 'n_alt_count' in m.muts and n.bam is None:
         logging.warn('normal BAM not supplied; normal allele depths for MNP will be zero')
     
     smuts = []
@@ -525,10 +529,13 @@ def run(args):
                                           args.max_phase_radius,
                                           args.min_base_quality,
                                           args.min_map_quality)
-            dfs.drop_duplicates(subset=['Chromosome',  'Start_position', 'Reference_Allele', 'Tumor_Seq_Allele'], inplace=True)
-            dfs.sort_values('Start_position', ignore_index=True, inplace=True)
-            dfg.drop_duplicates(subset=['Chromosome',  'Start_position', 'Reference_Allele', 'Tumor_Seq_Allele'], inplace=True)
-            dfg.sort_values('Start_position', ignore_index=True, inplace=True)
+            
+            if len(dfs) > 0:
+                dfs.drop_duplicates(subset=['Chromosome',  'Start_position', 'Reference_Allele', 'Tumor_Seq_Allele'], inplace=True)
+                dfs.sort_values('Start_position', ignore_index=True, inplace=True)
+            if len(dfg) > 0:
+                dfg.drop_duplicates(subset=['Chromosome',  'Start_position', 'Reference_Allele', 'Tumor_Seq_Allele'], inplace=True)
+                dfg.sort_values('Start_position', ignore_index=True, inplace=True)
             gmuts.append(dfg)
 
         smuts.append(dfs)

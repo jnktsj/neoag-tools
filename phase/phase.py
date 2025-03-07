@@ -3,7 +3,7 @@ import logging
 import itertools
 from collections import OrderedDict
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from scipy.stats import fisher_exact
 from .sample import Sample
 from .mutation import Mutation
 from .mutation import ClonalStructure
-from .writer import *
+from .writer import write_phase_vcf, write_phase_vcf_from_scratch, write_phase_maflite, write_subset_maf
 
 
 # make the ID variables float for handling these with 'nan'
@@ -185,10 +185,8 @@ def get_read_names(x, g, bam, min_base_q, min_map_q):
                     rg = 'alt'
                 elif base == ref_base:
                     rg = 'ref'
-            try:
+            if rg in r:
                 r[rg].add(read.alignment.query_name)
-            except KeyError:
-                continue
     return r
 
 
@@ -281,8 +279,8 @@ def chain_mnps(cl, pos, df, mnp_dict, g, chrom, t_reads, n_reads):
 
 
 def phase_mutations(df: pd.DataFrame, chrom: str,
-                    t: Sample, n: Sample, genome: str | Path,
-                    clonal_struct: ClonalStructure,
+                    t: Sample, n: Sample, genome: Union[str, Path],
+                    clonal_struct: Optional[ClonalStructure],
                     vaf_skew_pval,
                     min_phased_altc,
                     min_base_q,
@@ -318,7 +316,7 @@ def phase_mutations(df: pd.DataFrame, chrom: str,
         return df
     
     mutcl = pd.Series([np.nan]*len(df.index))
-    if clonal_struct:
+    if clonal_struct is not None:
         mutcl = df['Cluster_Assignment']
         # switch to VAF estimate if undefined clone clusters exist
         if clonal_struct.excluded_clone.intersection(set(mutcl.unique())):
@@ -404,7 +402,7 @@ def phase_mutations(df: pd.DataFrame, chrom: str,
     return df.reset_index(drop=True)
 
 
-def integrate_germline(df: pd.DataFrame, chrom: str, t: Sample, n: Sample, genome: str | Path, max_dist: int, min_base_q, min_map_q) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def integrate_germline(df: pd.DataFrame, chrom: str, t: Sample, n: Sample, genome: Union[str, Path], max_dist: int, min_base_q, min_map_q) -> Tuple[pd.DataFrame, pd.DataFrame]:
     global GERMLINE_ID
     germline = []
     gm_size = len(germline)
@@ -491,7 +489,8 @@ def run(args):
     m.muts['maf_idx'] = [set([i]) for i in m.muts.index]
     
     # use the original chromosome order (i.e. sort = False)
-    for chrom, df in m.muts.groupby('Chromosome', sort=False):
+    chrom: str
+    for chrom, df in m.muts.groupby('Chromosome', sort=False):  # type: ignore
         logging.info('processing chromosome {}'.format(chrom))
         df = group_mutations(df, args.max_phase_radius,
                              'PhaseID', args.min_coverage)

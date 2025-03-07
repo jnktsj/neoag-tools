@@ -5,7 +5,7 @@ import logging
 import itertools
 import argparse
 import sys
-from typing import Any, Dict, List, TextIO, Tuple
+from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ from .gtf import Annotation, Transcript, Locus
 
 VALID_PEPTIDE_LENGTHS = [8, 9, 10, 11]
 
-def validate_path(name: str, path: str | None, is_required=True):
+def validate_path(name: str, path: Optional[str], is_required=True):
     """
     Checks that the path is present.
 

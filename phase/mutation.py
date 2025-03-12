@@ -158,7 +158,7 @@ class ClonalStructure:
 
 
 class Mutation:
-    maf: str | Path
+    maf: Union[str, Path]
     """The path to the mutation MAF file."""
     muts: pd.DataFrame
     """The dataframe holding the mutations."""

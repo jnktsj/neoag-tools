@@ -11,7 +11,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/")
 import phase.phase
 import epitope.epitope
 
-
 def build_parser():
     parser = argparse.ArgumentParser(description='Run neoantigen generation tools')
     

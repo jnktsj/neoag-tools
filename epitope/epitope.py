@@ -180,7 +180,6 @@ def get_peptide_notation(wt: str, mt: str) -> str:
             aa_str += " "
     return aa_str
 
-
 def translate_mutation(fo_fasta: TextIO, fo_peptide: TextIO, fo_neoorf: TextIO, tumor_name: str, smuts: Dict[str, Dict[str, Any]],
                        normal_name: str, gmuts: pd.DataFrame, gtf: Annotation, gene_tpm: Dict[str, str], flank_length: int,
                        peptide_lengths: List[int], genome: str, codon_table: Dict[str, str]):

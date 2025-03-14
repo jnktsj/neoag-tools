@@ -3,7 +3,7 @@ import logging
 import itertools
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ import pysam
 from scipy.stats import fisher_exact
 
 from .sample import Sample
-from .mutation import Mutation
+from .mutation import MutationData
 from .mutation import ClonalStructure
 from .writer import (
     write_phase_vcf,
@@ -26,7 +26,6 @@ PHASE_ID = 0.0
 GERMLINE_ID = 0.0
 
 MNP_TYPE = {1: "SNP", 2: "DNP", 3: "TNP"}
-
 
 def validate_path(name: str, path: Optional[str], is_required=True):
     """
@@ -152,9 +151,9 @@ def group_mutations(
 def get_read_names(
     x: pd.Series,
     g: pysam.FastaFile,
-    bam: pysam.AlignmentFile,
-    min_base_q,
-    min_map_q,
+    bam: Optional[pysam.AlignmentFile],
+    min_base_q: int,
+    min_map_q: int,
 ) -> Dict[str, Set[str]]:
     """Gets the names of the reads supporting the given mutations (?).
 
@@ -162,8 +161,8 @@ def get_read_names(
         x (pd.Series): The row in the mutation dataframe describing the given mutation. Should contain the fields: ["Reference_Allele", "Tumor_Seq_Allele", "Variant_Type", "Chromosome", "Start_position"].
         g (pysam.FastaFile): The FASTA file of the human genome.
         bam (pysam.AlignmentFile): The BAM file containing the reads.
-        min_base_q (_type_): The minimal base quality allowed in the reads.
-        min_map_q (_type_): The minimal alignment quality allowed in the reads.
+        min_base_q (int): The minimal base quality allowed in the reads.
+        min_map_q (int): The minimal alignment quality allowed in the reads.
 
     Returns:
         Dict[str, Set[str]]: A dictionary of the form {"ref": [list of reference read names], "alt": [list of alternative read names]}
@@ -199,7 +198,7 @@ def get_read_names(
             rg = None
             base = None
             if read.query_position:
-                base = read.alignment.seq[read.query_position]
+                base = read.alignment.seq[read.query_position]  # type: ignore
 
             if mut_type in ["INS", "DEL"]:
                 blocks = read.alignment.get_blocks()
@@ -251,7 +250,7 @@ def get_read_names(
 
 
 def vaf_from_reads(r: Dict[str, Set[str]]) -> Tuple[int, int, float]:
-    """Computes the variant allele frequency of the mutation.
+    """Computes the variant allele frequency of the mutations.
 
     Args:
         r (Dict[str, Set[str]]): A dictionary of the form {"ref": [list of reference read names], "alt": [list of alternative read names]}
@@ -341,7 +340,23 @@ def cluster_mutations(
     return set([tuple(sorted(h)) for h in gi.values()])
 
 
-def chain_mnps(cl, pos, df, mnp_dict, g, chrom, t_reads, n_reads):
+def chain_mnps(cl: str, pos: pd.Index, df: pd.DataFrame, mnp_dict: Dict[Tuple, OrderedDict], g: pysam.FastaFile, chrom: str, t_reads: List[Dict[str, Set[str]]], n_reads: List[Dict[str, Set[str]]]) -> Dict[Tuple, OrderedDict]:
+    """
+    Chains several mutations to a single multi-nucleotide mutation.
+
+    Args:
+        cl (str): The subclone of the merged mutation event.
+        pos (pd.Index): The indices of the mutations that should be merged in the dataframe.
+        df (pd.DataFrame): A dataframe containing mutations.
+        mnp_dict (Dict): A dictionary mapping the shared IDs to the dict describing merged mutation events.
+        g (pysam.FastaFile): The reference genome.
+        chrom (str): The chromosome in which the mutations are.
+        t_reads (Dict[str, Set[str]]): The reads supporting 
+        n_reads (Dict[str, Set[str]]): _description_
+
+    Returns:
+        Dict: _description_
+    """
     start, end = list(df.loc[[pos[0], pos[-1]], "Start_position"])
     posr = list(df.loc[pos, "Start_position"] - start)
     maf_idx = set()
@@ -350,10 +365,10 @@ def chain_mnps(cl, pos, df, mnp_dict, g, chrom, t_reads, n_reads):
     t_alt_count, t_ref_count = [], []
     n_alt_count, n_ref_count = [], []
     for i in range(len(pos)):
-        maf_idx = maf_idx.union(df.loc[pos[i], "maf_idx"])
+        maf_idx = maf_idx.union(df.loc[pos[i], "maf_idx"])  # type: ignore
         # this can handle existing DNP, TNP, ONP
-        alt_base = df.loc[pos[i], "Tumor_Seq_Allele"]
-        alt[posr[i] : posr[i] + len(alt_base)] = list(alt_base)
+        alt_base: str = df.loc[pos[i], "Tumor_Seq_Allele"]  # type: ignore
+        alt[posr[i] : posr[i] + len(alt_base)] = alt_base
         t_alt_count.append(t_reads[pos[i]]["alt"])
         t_ref_count.append(t_reads[pos[i]]["ref"])
         n_alt_count.append(n_reads[pos[i]]["alt"])
@@ -383,7 +398,7 @@ def phase_mutations(
     chrom: str,
     t: Sample,
     n: Sample,
-    genome: Union[str, Path],
+    genome: str,
     clonal_struct: Optional[ClonalStructure],
     vaf_skew_pval,
     min_phased_altc,
@@ -524,11 +539,13 @@ def integrate_germline(
     chrom: str,
     t: Sample,
     n: Sample,
-    genome: Union[str, Path],
+    genome: str,
     max_dist: int,
     min_base_q,
     min_map_q,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    assert n.vcf is not None, 'integrate_germline can only be called when the normal sample is defined.'
+
     global GERMLINE_ID
     germline = []
     gm_size = len(germline)
@@ -604,7 +621,7 @@ def run(args):
     n = Sample(args.normal_bam, args.normal_vcf)
 
     logging.info("loading mutations from input MAF")
-    m = Mutation(
+    m = MutationData(
         args.input_maf,
         args.tumor_name,
         t.bam_sm,
@@ -614,7 +631,7 @@ def run(args):
     )
 
     if "n_alt_count" in m.muts and n.bam is None:
-        logging.warn(
+        logging.warning(
             "normal BAM not supplied; normal allele depths for MNP will be zero"
         )
 

@@ -157,8 +157,8 @@ class ClonalStructure:
         )
 
 
-class Mutation:
-    maf: Union[str, Path]
+class MutationData:
+    maf: str
     """The path to the mutation MAF file."""
     muts: pd.DataFrame
     """The dataframe holding the mutations."""
@@ -171,7 +171,7 @@ class Mutation:
 
     def __init__(
         self,
-        maf: Union[str, Path],
+        maf: str,
         name: str,
         smid: str,
         phylogic_ccf: Union[str, Path, None],
@@ -181,7 +181,7 @@ class Mutation:
         """A class holding the mutation data.
 
         Args:
-            maf (Union[str, Path]): The path to the mutation MAF file.
+            maf (str): The path to the mutation MAF file.
             name (str): The name of the sample (?).
             smid (str): The ID of the sample.
             phylogic_ccf (Union[str, Path, None]): A path to a file mapping every mutation to a single CCF.

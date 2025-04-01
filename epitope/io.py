@@ -80,7 +80,9 @@ common_header = [
 ]
 
 
-def read_maf(maf: Union[str, Path, None], name: str, name_col: str) -> pd.DataFrame:
+def read_maf(
+    maf: Union[str, Path, None], name: str, name_col: str
+) -> pd.DataFrame:
     """
     Reads a MAF file into a pandas DataFrame.
     The MAF files handled both use # as a way to mark comments and as a character inside fields,
@@ -149,10 +151,17 @@ def read_maf(maf: Union[str, Path, None], name: str, name_col: str) -> pd.DataFr
         )
 
         i = ~df["ClonalStructure"].isna()
+
         def make_set(x):
             """Converts a string of the form "[a, b, c]" to a set {a, b, c}."""
-            return set([xi.strip() for xi in re.sub(r"\[|\]", "", x).split(",") if xi.strip().isnumeric()])
-        
+            return set(
+                [
+                    xi.strip()
+                    for xi in re.sub(r"\[|\]", "", x).split(",")
+                    if xi.strip().isnumeric()
+                ]
+            )
+
         df.loc[i, "ClonalStructure"] = df.loc[i, "ClonalStructure"].apply(
             make_set
         )
@@ -269,7 +278,19 @@ def write_fasta(
 
 
 def write_peptide(
-    fo: TextIO, smuts: pd.DataFrame, clone: str, wt: Seq, mt: Seq, mstr: str, idx: Dict[int, Tuple[int, int]], name: str, txid: str, gnid: str, tpm: str, flen: int, pep_lens: List[int]
+    fo: TextIO,
+    smuts: pd.DataFrame,
+    clone: str,
+    wt: Seq,
+    mt: Seq,
+    mstr: str,
+    idx: Dict[int, Tuple[int, int]],
+    name: str,
+    txid: str,
+    gnid: str,
+    tpm: str,
+    flen: int,
+    pep_lens: List[int],
 ):
     """
     Write the given peptide to the output file.
@@ -297,12 +318,15 @@ def write_peptide(
     index: int
     for index, m in smuts.iterrows():  # type: ignore
         start, end = idx[index]
-        start = start - start % 3 + 1
-        end = (end - 1) - (end - 1) % 3 + 1
-        
+        start = start - start % 3
+        end = (end + 2) - (end + 2) % 3
+
         indices = range(start, min(len(mstr), end), 3)
         # The mutated range can theoretically be in a non-coding sequence, in which case we need to ignore it as it has no transcript.
         if len(indices) == 0:
+            print(
+                f"Skipped: Mutation is in a non-coding sequence. {start=} {end=}"
+            )
             continue
 
         # adjust reading frame for shifted amino acid mismatches
@@ -310,7 +334,7 @@ def write_peptide(
             if mstr[i] == "*":
                 start = i
                 break
-            
+
         for i in reversed(indices):
             if mstr[i] == "*":
                 end = i
@@ -362,6 +386,7 @@ def write_peptide(
 
         wt_aa = wt_aa_up + wt_aa + wt_aa_dn
         mt_aa = mt_aa_up + mt_aa + mt_aa_dn
+
         for plen in pep_lens:
             for i in range(start - plen + 1, stop):
                 pep_wt = wt_aa[i : i + plen]
@@ -405,7 +430,19 @@ def write_peptide(
                 )
 
 
-def write_neoorf(fo: TextIO, smuts: pd.DataFrame, clone: str, wt: Seq, mt: Seq, mstr: str, idx: Dict[int, Tuple[int, int]], name: str, txid: str, gnid: str, tpm: str):
+def write_neoorf(
+    fo: TextIO,
+    smuts: pd.DataFrame,
+    clone: str,
+    wt: Seq,
+    mt: Seq,
+    mstr: str,
+    idx: Dict[int, Tuple[int, int]],
+    name: str,
+    txid: str,
+    gnid: str,
+    tpm: str,
+):
     index: int
     for index, m in smuts.iterrows():  # type: ignore
         start, end = idx[index]

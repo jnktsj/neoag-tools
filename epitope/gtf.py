@@ -1,8 +1,9 @@
-import gzip
-from typing import Any, Dict, List, Optional, Tuple
-import pysam
-
 from .seq import Seq
+import gzip
+from typing import Any, Dict, List, Literal, Optional, Tuple
+import pysam
+from dataclasses import dataclass, field
+from tqdm import tqdm
 
 """
 GTF organizes the transcript data hierarchically, with the organization levels being:
@@ -16,87 +17,59 @@ or the span containing all child nodes for an object higher in the hierarchy.
 """
 
 
+@dataclass
 class Locus:
     """
     A substring of one of the DNA strands.
     """
 
-    name: str
+    contig: str
     """The name of the locus."""
     start: int
     """The start position."""
     end: int
     """The end position."""
-    strand: str
+    strand: Literal["+", "-"]
     """Whether the locus is on the + or - strand."""
-    offset: int
-
-    def __init__(self, name: str, start, end, strand, offset=1):
-        self.name = name
-        self.start = int(start)
-        self.end = int(end)
-        self.strand = strand
-        self.offset = offset
+    offset: int = field(default=1)
 
     def length(self):
         return self.end - self.start + self.offset
 
     def region_string(self) -> str:
-        return "{}:{}-{}".format(self.name, self.start, self.end)
+        return "{}:{}-{}".format(self.contig, self.start, self.end)
 
 
+@dataclass
 class Gene:
-    def __init__(
-        self, gene_id: str, gene_name: str, gene_type: str, locus: Locus
-    ):
-        self.id = gene_id
-        self.name = gene_name
-        self.type = gene_type
-        self.pos = locus
+    id: str
+    name: str
+    type: str
+    pos: Locus
 
 
+@dataclass
 class Exon:
-    id: Any
+    id: str
     exon_number: int
     pos: Locus
-    cds_pos: Optional[Locus]
-    cds_frame: int
-
-    def __init__(self, exon_id, exon_number: int, locus: Locus):
-        self.id = exon_id
-        self.number = exon_number
-        self.pos = locus
-        self.cds_pos = None
-        self.cds_frame = -1
+    cds_pos: Optional[Locus] = field(default=None)
+    cds_frame: int = field(default=-1)
 
     def set_cds(self, locus: Locus, frame: int):
         self.cds_pos = locus
         self.cds_frame = frame
 
 
+@dataclass
 class Transcript:
     gene: Gene
     id: str
     name: str
     type: str
     pos: Locus
-    exons: Dict[int, Exon]
-
-    def __init__(
-        self,
-        gene: Gene,
-        transcript_id: str,
-        transcript_name: str,
-        transcript_type: str,
-        locus: Locus,
-    ):
-        self.gene = gene
-        self.id = transcript_id
-        self.name = transcript_name
-        self.type = transcript_type
-        self.pos = locus
-        self.exons = dict()
-        self.is_coding = False
+    exons: Dict[int, Exon] = field(default_factory=dict)
+    is_coding: bool = field(default=False)
 
     def get_exon_order(self):
         """Return exon order based on strand"""
@@ -179,14 +152,14 @@ class Transcript:
                 assert cds_pos is not None
                 if self.pos.strand == "+":
                     region = Locus(
-                        self.pos.name,
+                        self.pos.contig,
                         cds_pos.start,
                         self.exons[i].pos.end,
                         self.pos.strand,
                     )
                 else:
                     region = Locus(
-                        self.pos.name,
+                        self.pos.contig,
                         self.exons[i].pos.start,
                         cds_pos.end,
                         self.pos.strand,
@@ -234,14 +207,15 @@ class Annotation:
         gene_read = 0
         g = None
         t = None
-        for row in gtf:
+        for row in tqdm(gtf, total=3424909):
             # skip comment lines
             if row.startswith("#"):
                 continue
             row = row.rstrip("\n").split("\t")
 
             # Locus(chrom, start, end, strand)
-            pos = Locus(row[0], row[3], row[4], row[6])
+            assert row[6] in ("-", "+"), f"Illegal strand: {row[6]}"
+            pos = Locus(row[0], int(row[3]), int(row[4]), row[6])
             feature = row[2]
             frame = row[7]
 

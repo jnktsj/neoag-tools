@@ -103,7 +103,7 @@ class ClonalStructure:
         Args:
             input_tree (str): Either a tree in the format "parent1-child1,parent2-child2,...", or a path to a file containing trees in this format.
             index (int): The index of the tree in the file.
-            cluster (_type_): _description_
+            cluster (Set): A set of all existing clusters.
         """
         self.excluded_clone = set()
 

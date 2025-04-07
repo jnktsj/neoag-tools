@@ -71,7 +71,7 @@ class Transcript:
     exons: Dict[int, Exon] = field(default_factory=dict)
     is_coding: bool = field(default=False)
 
-    def get_exon_order(self):
+    def get_exon_order(self) -> range:
         """Return exon order based on strand"""
         if self.pos.strand == "-":
             return range(len(self.exons), 0, -1)

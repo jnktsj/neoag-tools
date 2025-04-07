@@ -109,7 +109,7 @@ CLONAL_STRUCTURE_COL = "ClonalStructure"
 GERMLINE_ID_COL = "GermlineID"
 
 
-def parse_mutations(mutations_df: pd.DataFrame) -> list[Mutation]:
+def parse_mutations(mutations_df: pd.DataFrame) -> List[Mutation]:
     """Parses the given dataframe containing mutation data to a list of mutation objects.
 
     Args:
@@ -439,6 +439,31 @@ def translate_mutation(
                     tx.gene.id,
                     tpm,
                 )
+
+
+# def mutate_sequence(transcript: Transcript, mutations: List[Mutation], reference: pysam.FastaFile) -> Tuple[str, str, List[int]]:
+#     """
+#     Computes the mutated nucleotide sequence.
+
+#     Args:
+#         seq (Seq): The sequence to mutate.
+#         mutations (List[Mutation]): The list of mutations to apply.
+#         reference (pysam.FastaFile): A fasta file containing the reference genome.
+
+#     Returns:
+
+#     A tuple containing:
+#     * The unmutated sequence.
+#     * The mutated sequence.
+#     * A list of integers, mapping each nucleotide in the muated sequence to a nucleotide in the unmutated sequence.
+#     """
+#     wt = []
+#     mt = []
+#     map_indices = []
+
+#     for exon_idx in transcript.get_exon_order():
+#         exon = transcript.exons[exon_idx]
+#         exon.cds_pos
 
 
 def run(args):

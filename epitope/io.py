@@ -353,10 +353,10 @@ def write_peptide(
             mt_aa_dn = ""
             wt_aa_dn = ""
         else:
-            wt_aa = unpad_peptide(wt.aa[start : end + 1])
-            mt_aa = unpad_peptide(mt.aa[start : end + 1])
-            mt_aa_dn = unpad_peptide(mt.aa[(end + 3) :])
-            wt_aa_dn = unpad_peptide(wt.aa[(end + 3) :])
+            wt_aa = unpad_peptide(wt.aa[start:end])
+            mt_aa = unpad_peptide(mt.aa[start:end])
+            mt_aa_dn = unpad_peptide(mt.aa[end:])
+            wt_aa_dn = unpad_peptide(wt.aa[end:])
 
             # trim downstream sequence with specified flanking peptide length
             mt_aa_dn = mt_aa_dn[:flank_length] + "-" * (

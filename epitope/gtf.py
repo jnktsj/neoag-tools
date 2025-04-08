@@ -3,7 +3,6 @@ import gzip
 from typing import Any, Dict, List, Literal, Optional, Tuple
 import pysam
 from dataclasses import dataclass, field
-from tqdm import tqdm
 
 """
 GTF organizes the transcript data hierarchically, with the organization levels being:
@@ -207,7 +206,7 @@ class Annotation:
         gene_read = 0
         g = None
         t = None
-        for row in tqdm(gtf, total=3424909):
+        for row in gtf:
             # skip comment lines
             if row.startswith("#"):
                 continue

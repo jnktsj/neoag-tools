@@ -342,6 +342,7 @@ def translate_mutation(
                     f"Skipping the transcript {txid}; CDS not defined"
                 )
                 continue
+
             seq, pos, exon_str = tx.raw_cds_with_downstream(genome)
             # get coding mutation index
             vc_i = smuts[cl]["mut"]["Variant_Classification"].isin(
@@ -486,7 +487,6 @@ def run(args):
     germline_mutations = read_maf(
         args.germline_maf, args.normal_name, "Matched_Norm_Sample_Barcode"
     )
-
     # Ignoring the phasing if we are instructed to.
     if args.ignore_phasing:
         mutations[PHASE_ID_COL] = np.nan
@@ -579,7 +579,7 @@ def run(args):
     for i, mut in mutations.loc[is_coding].iterrows():
         index: List[Any] = [i]
         if not pd.isna(mut["PhaseID"]):
-            curr_phase_id = mut["PhaseID"]  # noqa: F841
+            curr_phase_id = mut["PhaseID"]  # noqa: F841  # This is used two lines below with a pandas query.
             index.extend(
                 list(coding_mutations.query("PhaseID == @curr_phase_id").index)
             )

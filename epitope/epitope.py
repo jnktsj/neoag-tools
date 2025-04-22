@@ -209,6 +209,7 @@ def mutate_sequence(
     for x, m in muts.iterrows():  # type: ignore
         ref = m["Reference_Allele"]
         alt = m["Tumor_Seq_Allele"]
+        # Finding `index`, the index of the locus where the mutation lies, and `start`, the start position of the mutation in the sequence.
         for index in range(len(pos)):
             if (
                 pos[index].start <= m["Start_position"]
@@ -240,7 +241,6 @@ def mutate_sequence(
                 idx_seq[index][i] = x
         else:
             logging.warning("unknown variant type: " + m["Variant_Type"])
-
     return mut_seq, idx_seq
 
 
@@ -259,31 +259,44 @@ def get_mutation_notation(
         Tuple: A tuple containing:
           * The mutation representation
           * A map from the mutation IDs to the mutated spans.
-    """
 
+    The spanning regions for each mutation are defined as the minimal bounding sets for the mutation.
+    This is meant to handle multi-nucleotide substitutions, which can produce non-contiguous mutated regions but are sometimes defined as a single mutation
+    by the upstream code.
+    """
     mt_str = ""
     mt_pos = []
-    for i, (wt_base, mt_base) in enumerate(zip(wt, mt)):
-        if mt_base == "":
-            mt_str += "d" * len(wt_base)
-            if idx[i] not in mt_pos:
-                mt_pos.append(idx[i])
-        elif len(mt_base) > len(wt_base):
-            mt_str += " " * len(wt_base) + "i" * (len(mt_base) - len(wt_base))
-            mt_pos.append(idx[i])
-        elif mt_base != wt_base:
-            mt_str += "m" * len(mt_base)
-            mt_pos.append(idx[i])
-        else:
-            mt_str += " " * len(wt_base)
-
-    # move sequential deletion characters to deletion edges
-    # TODO: This seems wrong, and would bring a lot of things out of alignment.
-    mt_str = re.sub(" d+ ", "dd", mt_str)
-
     mt_idx = {}
-    for i, m in enumerate(re.finditer("[mdi]+", mt_str)):
-        mt_idx[mt_pos[i]] = m.span()
+
+    assert len(wt) == len(mt) == len(idx)
+    for wt_base, mt_base, mut_idx in zip(wt, mt, idx):
+        # Handling unmutated regions.
+        if wt_base == mt_base:
+            mt_str += " " * len(wt_base)
+            mt_pos += [-1] * len(wt_base)
+            continue
+
+        mt_pos += [mut_idx] * len(wt_base)
+        # Deletions
+        if mt_base == "":
+            mt_idx.setdefault(mut_idx, [len(mt_str), len(mt_str)])[1] = len(
+                mt_str
+            ) + len(wt_base)
+            mt_str += "d" * len(wt_base)
+        # Insertions
+        elif len(mt_base) > len(wt_base):
+            mt_idx.setdefault(mut_idx, [len(mt_str), len(mt_str)])[1] = len(
+                mt_str
+            ) + len(mt_base)
+            mt_str += " " * len(wt_base) + "i" * (len(mt_base) - len(wt_base))
+        else:
+            assert len(wt_base) == len(mt_base), (
+                'Deletions should be represented as matches to ""'
+            )
+            mt_idx.setdefault(mut_idx, [len(mt_str), len(mt_str)])[1] = len(
+                mt_str
+            ) + len(mt_base)
+            mt_str += "m" * len(mt_base)
 
     return mt_str, mt_idx
 
@@ -404,6 +417,7 @@ def translate_mutation(
             )
 
             tpm = gene_tpm.get(txid.split(".")[0], "nan")
+
             write_peptide(
                 fo_peptide,
                 smuts[cl]["mut"].loc[mx],

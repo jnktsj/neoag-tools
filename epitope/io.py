@@ -302,7 +302,9 @@ def write_peptide(
         wt (Seq): The wild-type sequence.
         mt (Seq): The mutated sequence.
         mstr (str): The representation of the differences between the wild-type and the mutation, produced by `get_peptide_notation`.
-        idx (Dict[int, Tuple[int, int]]): A map from some indices to spans of mutated regions (In which sequence?). These are produced by `get_mutation_notation`.
+        idx (Dict[int, Tuple[int, int]]): A map from some indices to spans of mutated regions in the mutated sequence. These are produced by `get_mutation_notation`.
+            The index only really has to be correct for the mutated sequence, and the wild-type peptide is neither really well defined nor handled properly:
+            If there are two deletions in the same peptide, the first will induce a shift in the alignment of the next two.
         name (str): The tumor name.
         txid (str): ???
         gnid (str): The ID of the gene.

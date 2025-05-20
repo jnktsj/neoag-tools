@@ -90,7 +90,7 @@ def read_maf(
 
     Args:
         maf (Union[str, Path, None]): The path to the MAF file.
-        name (str): The name of the sample.
+        name (str): The name of the sample. It can be treated as a comma-separated list of names.
         name_col (str): The name of the column where names are stored.
 
     Returns:
@@ -114,12 +114,18 @@ def read_maf(
     df = pd.DataFrame(data=record, dtype=str)
 
     tid = set(df[name_col])
-    if name not in tid:
+    # Finding the correct tumor name among all possible names.
+    # The name is treated as a comma separated list.
+    # I am not really sure what this does to dataframes with multiple tumors.
+    for name in name.split(","):
+        if name in tid:
+            if len(tid) > 1:
+                row = df[name_col] == name
+                df[row].reset_index(drop=True, inplace=True)
+            tid = name
+            break
+    else:
         raise Exception(name + " not in " + os.path.basename(maf))
-    if len(tid) > 1:
-        row = df[name_col] == name
-        df[row].reset_index(drop=True, inplace=True)
-    tid = name
 
     # rename MAF header
     df.rename(columns={"Tumor_Seq_Allele2": "Tumor_Seq_Allele"}, inplace=True)

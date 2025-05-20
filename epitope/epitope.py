@@ -70,12 +70,12 @@ def check_input_args(args: argparse.Namespace):
     validate_path("codon table", args.codon_table, is_required=False)
     validate_path("gene expression matrix", args.gene_expr, is_required=False)
 
-    if args.tumor_name is None:
+    if tumor_name is None:
         raise Exception("provide tumor sample name in the input MAF")
 
     # check optional arguments
-    if args.normal_name or args.germline_maf:
-        if args.normal_name is None:
+    if normal_name or args.germline_maf:
+        if normal_name is None:
             raise Exception("provide normal sample name")
         validate_path("germline MAF", args.germline_maf)
 
@@ -166,24 +166,6 @@ def group_mutations(muts: Iterable[Mutation]) -> List[List[Mutation]]:
 
     res.extend(by_phase_id.values())
     return res
-
-
-def get_translated_transcript(
-    muts: List[Mutation],
-    transcript: Transcript,
-    codon_table: Dict[str, str],
-    fasta: pysam.FastaFile,
-) -> str:
-    """Gets the peptides created
-
-    Args:
-        muts (List[Mutation]): _description_
-        transcript (Transcript): _description_
-        fasta (pysam.FastaFile): _description_
-
-    Returns:
-        List[str]: _description_
-    """
 
 
 def mutate_sequence(
@@ -492,15 +474,20 @@ def run(args):
 
     # load mutations
     logging.info("loading mutations from input MAF")
-    print("Running epitope.py")
-    print(args)
-    print(args.input_maf)
-    mutations = read_maf(
-        args.input_maf, args.tumor_name, "Tumor_Sample_Barcode"
-    )
+
+    tumor_name = args.tumor_name
+    normal_name = args.normal_name
+
+    mutations = read_maf(args.input_maf, tumor_name, "Tumor_Sample_Barcode")
     germline_mutations = read_maf(
-        args.germline_maf, args.normal_name, "Matched_Norm_Sample_Barcode"
+        args.germline_maf, normal_name, "Matched_Norm_Sample_Barcode"
     )
+
+    # If the names are comma-separated lists, take the first element as the chosen name.
+    # (Otherwise, they will remain the same)
+    tumor_name = tumor_name.split(",")[0]
+    normal_name = normal_name.split(",")[0]
+
     # Ignoring the phasing if we are instructed to.
     if args.ignore_phasing:
         mutations[PHASE_ID_COL] = np.nan
@@ -577,14 +564,14 @@ def run(args):
     germline_muts = parse_mutations(germline_mutations)
 
     # output FASTA
-    fo_fasta = open(args.tumor_name + ".muts.fa", "w")
+    fo_fasta = open(tumor_name + ".muts.fa", "w")
 
     # output peptide file
-    fo_peptide = open(args.tumor_name + ".peptide.tsv", "w")
+    fo_peptide = open(tumor_name + ".peptide.tsv", "w")
     fo_peptide.write("\t".join(peptide_header + common_header) + "\n")
 
     # output neoorf file
-    fo_neoorf = open(args.tumor_name + ".neoorf.tsv", "w")
+    fo_neoorf = open(tumor_name + ".neoorf.tsv", "w")
     fo_neoorf.write("\t".join(neoorf_header + common_header) + "\n")
 
     logging.info("start translating mutations")
@@ -649,9 +636,9 @@ def run(args):
             fo_fasta,
             fo_peptide,
             fo_neoorf,
-            args.tumor_name,
+            tumor_name,
             smuts,
-            args.normal_name,
+            normal_name,
             gmuts,
             gtf,
             gene_tpm,

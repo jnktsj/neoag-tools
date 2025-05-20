@@ -117,15 +117,17 @@ def read_maf(
     # Finding the correct tumor name among all possible names.
     # The name is treated as a comma separated list.
     # I am not really sure what this does to dataframes with multiple tumors.
-    for name in name.split(","):
-        if name in tid:
+    for name_candidate in name.split(","):
+        if name_candidate in tid:
             if len(tid) > 1:
-                row = df[name_col] == name
+                row = df[name_col] == name_candidate
                 df[row].reset_index(drop=True, inplace=True)
-            tid = name
+            tid = name_candidate
             break
     else:
-        raise Exception(name + " not in " + os.path.basename(maf))
+        raise Exception(
+            f"{name} not in {os.path.basename(maf)}: Detected names {tid}"
+        )
 
     # rename MAF header
     df.rename(columns={"Tumor_Seq_Allele2": "Tumor_Seq_Allele"}, inplace=True)
@@ -133,6 +135,9 @@ def read_maf(
         df.rename(columns={"Start_Position": "Start_position"}, inplace=True)
     if "End_Position" in df:
         df.rename(columns={"End_Position": "End_position"}, inplace=True)
+
+    # Remove weird rows. Funcotator sometimes outputs rows that are all __UNKNOWN__, and cause crashes later.
+    df = df.query("Hugo_Symbol != '__UNKNOWN__'")
 
     # format MAF columns
     if "PhaseID" in df:

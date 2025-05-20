@@ -479,7 +479,7 @@ def run(args):
     normal_name_list = (
         normal_name if args.normal_name_list == "" else args.normal_name_list
     )
-
+    print(f"Using {tumor_name_list=} {normal_name_list=}")
     mutations = read_maf(
         args.input_maf, tumor_name_list, "Tumor_Sample_Barcode"
     )

@@ -8,7 +8,7 @@ import logging
 import itertools
 import argparse
 import sys
-import pysam
+import pysam  # type: ignore
 from typing import (
     Any,
     Callable,
@@ -70,12 +70,12 @@ def check_input_args(args: argparse.Namespace):
     validate_path("codon table", args.codon_table, is_required=False)
     validate_path("gene expression matrix", args.gene_expr, is_required=False)
 
-    if tumor_name is None:
+    if args.tumor_name is None:
         raise Exception("provide tumor sample name in the input MAF")
 
     # check optional arguments
-    if normal_name or args.germline_maf:
-        if normal_name is None:
+    if args.normal_name or args.germline_maf:
+        if args.normal_name is None:
             raise Exception("provide normal sample name")
         validate_path("germline MAF", args.germline_maf)
 

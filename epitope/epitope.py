@@ -3,23 +3,18 @@ import os
 import copy
 from pathlib import Path
 import pickle
-import re
 import logging
 import itertools
 import argparse
 import sys
-import pysam  # type: ignore
 from typing import (
     Any,
-    Callable,
     Dict,
-    Hashable,
     Iterable,
     List,
     Optional,
     TextIO,
     Tuple,
-    TypeVar,
 )
 
 import numpy as np
@@ -475,18 +470,22 @@ def run(args):
     # load mutations
     logging.info("loading mutations from input MAF")
 
-    tumor_name = args.tumor_name
-    normal_name = args.normal_name
+    tumor_name: str = args.tumor_name
+    normal_name: str = args.normal_name
 
-    mutations = read_maf(args.input_maf, tumor_name, "Tumor_Sample_Barcode")
-    germline_mutations = read_maf(
-        args.germline_maf, normal_name, "Matched_Norm_Sample_Barcode"
+    tumor_name_list = (
+        tumor_name if args.tumor_name_list == "" else args.tumor_name_list
+    )
+    normal_name_list = (
+        normal_name if args.normal_name_list == "" else args.normal_name_list
     )
 
-    # If the names are comma-separated lists, take the first element as the chosen name.
-    # (Otherwise, they will remain the same)
-    tumor_name = tumor_name.split(",")[0]
-    normal_name = normal_name.split(",")[0]
+    mutations = read_maf(
+        args.input_maf, tumor_name_list, "Tumor_Sample_Barcode"
+    )
+    germline_mutations = read_maf(
+        args.germline_maf, normal_name_list, "Matched_Norm_Sample_Barcode"
+    )
 
     # Ignoring the phasing if we are instructed to.
     if args.ignore_phasing:
@@ -559,9 +558,9 @@ def run(args):
 
     peptide_lengths = list(map(int, args.peptide_length.split(",")))
 
-    # Parsing the mutations.
-    tumor_muts = parse_mutations(mutations)
-    germline_muts = parse_mutations(germline_mutations)
+    # # Parsing the mutations.
+    # tumor_muts = parse_mutations(mutations)
+    # germline_muts = parse_mutations(germline_mutations)
 
     # output FASTA
     fo_fasta = open(tumor_name + ".muts.fa", "w")

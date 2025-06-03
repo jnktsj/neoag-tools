@@ -317,7 +317,7 @@ def write_peptide(
             The index only really has to be correct for the mutated sequence, and the wild-type peptide is neither really well defined nor handled properly:
             If there are two deletions in the same peptide, the first will induce a shift in the alignment of the next two.
         name (str): The tumor name.
-        txid (str): ???
+        txid (str): The ID of the transcript.
         gnid (str): The ID of the gene.
         tpm (str): The expression level of the transcript in TPM?
         flen (int): The length of the flanking regions.

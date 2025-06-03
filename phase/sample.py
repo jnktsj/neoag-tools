@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 import numpy as np
 import pysam
@@ -10,38 +11,43 @@ class Sample:
     vcf   : vcf file name
     vcf_sm: sample name in VCF
     """
-    def __init__(self, bam, vcf):
-        self.bam = None
-        self.bam_sm = None
-        self.vcf = None
-        self.vcf_sm = None
-        
-        if bam:
-            self.bam = pysam.AlignmentFile(bam, 'rb')
-            bam_sm = set([rg['SM'] for rg in self.bam.header['RG']])
-            if len(bam_sm) > 1:
-                raise ValueError('Multiple sample names in {}: {}'.format(
-                    os.path.basename(bam), ' '.join(bam_sm)
-                ))
-            self.bam_sm = bam_sm.pop()
-            self.bam = bam
+    bam: str
+    """The path to the BAM file."""
+    bam_sm: str
+    """The BAM sample name."""
+    vcf: Optional[str]
+    """The path to the sample VCF file."""
+    vcf_sm: str
+    """The sample name in the VCF file."""
 
-        if vcf:
-            self.vcf = pysam.VariantFile(vcf, 'r')
-            vcf_sm = set(self.vcf.header.samples)
-            if len(vcf_sm) > 2:
-                raise ValueError('Multiple sample names in {}: {}'.format(
-                    os.path.basename(vcf), ' '.join(vcf_sm)
-                ))
-            if self.bam_sm in vcf_sm:
+    def __init__(self, bam_path: str, vcf_path: Optional[str]):
+        self.bam = bam_path
+        self.vcf = vcf_path
+
+        # Getting the sample name from the BAM file.
+        bam = pysam.AlignmentFile(self.bam, 'rb')
+        bam_sample_names = set([rg['SM'] for rg in bam.header['RG']])  # type: ignore
+        if len(bam_sample_names) > 1:
+            raise ValueError('Multiple sample names in {}: {}'.format(
+                os.path.basename(self.bam), ' '.join(bam_sample_names)
+            ))
+        self.bam_sm = bam_sample_names.pop()
+
+        if vcf_path is not None:
+            # Getting the sample name from the VCF.
+            vcf = pysam.VariantFile(vcf_path, 'r')
+            vcf_sample_names = set(vcf.header.samples)
+
+            if self.bam_sm in vcf_sample_names:
                 self.vcf_sm = self.bam_sm
-            elif 'TUMOR' in vcf_sm:
+            if len(vcf_sample_names) > 2:
+                raise ValueError('Multiple sample names in {}: {}'.format(
+                    os.path.basename(vcf_path), ' '.join(vcf_sample_names)
+                ))
+            elif 'TUMOR' in vcf_sample_names:
                 self.vcf_sm = 'TUMOR'
-            elif len(vcf_sm) == 1:
-                self.vcf_sm = vcf_sm.pop()
+            elif len(vcf_sample_names) == 1:
+                self.vcf_sm = vcf_sample_names.pop()
             else:
                 raise ValueError('Cannot read sample name in {}: {}'.format(
-                    os.path.basename(vcf), ' '.join(bam_sm)))
-            if not self.bam_sm and self.vcf_sm != 'TUMOR':
-                self.bam_sm = self.vcf_sm
-            self.vcf = vcf
+                    os.path.basename(vcf_path), ' '.join(vcf_sample_names)))

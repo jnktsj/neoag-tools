@@ -1,4 +1,7 @@
-import pandas as pd
+from dataclasses import dataclass
+from typing import Dict, Optional, Set, Tuple
+
+# fmt: off
 
 # standard code (transl_table=1)
 standard_code = {
@@ -40,7 +43,10 @@ mitochondrial_code = {
     'TTA': 'L', 'TTC': 'F', 'TTG': 'L', 'TTT': 'F'
   }
 
-def create_codon_table(file_path):
+# fmt: on
+
+
+def create_codon_table(file_path: str) -> Dict[str, str]:
     """
     The above pre-compiled codon table is standard genetic code.
     If your organism or organelle (e.g. mitochondria, plastid) uses
@@ -61,55 +67,107 @@ def create_codon_table(file_path):
     Base3  = TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG
     """
     aa = []
-    codon= []
-    for c in open(file_path, 'r'):
-        c = c.strip().replace(' ', '').split('=')
-        if c[0].startswith('Starts'):
+    codon = []
+    for c in open(file_path, "r"):
+        c = c.strip().replace(" ", "").split("=")
+        if c[0].startswith("Starts"):
             continue
-        elif c[0].startswith('AAs'):
+        elif c[0].startswith("AAs"):
             aa = list(c[1])
-        elif c[0].startswith('Base'):
+        elif c[0].startswith("Base"):
             codon.append(c[1])
-            
+
     codon_table = dict()
     for i, c in enumerate(zip(*codon)):
-        codon_table.setdefault(''.join(c), aa[i])
-        
+        codon_table.setdefault("".join(c), aa[i])
+
     return codon_table
 
 
 complement = str.maketrans("ACGTRYKMBDHV", "TGCAYRMKVHDB")
+
+
 class Seq:
-    def __init__(self, seq):
+    """
+    A class holding a nucleotide sequence.
+    """
+
+    seq: str
+    """The nucleotide sequence."""
+    aa: Optional[str]
+    """An amino acid sequence corresponding to the translated peptide sequence."""
+
+    def __init__(self, seq: str):
         self.seq = seq.upper()
         self.aa = None
-        
-    def reverse_complement(self):
-        self.seq = self.seq[::-1].translate(complement)
-        return self.seq
 
-    def translate(self, start=None, end=None, codon_table=standard_code, padchar=''):
-        if start == None:
+    def reverse_complement(self) -> "Seq":
+        """
+        Returns the reverse-complement of the nucleotide sequence.
+        """
+        return Seq(self.seq[::-1].translate(complement))
+
+    def translate(
+        self,
+        start: Optional[int] = None,
+        end: Optional[int] = None,
+        codon_table: Dict[str, str] = standard_code,
+        padchar="",
+    ) -> Tuple[str, int]:
+        """
+        Translates the sequence from a nucleotide sequence to an amino acid sequence.
+
+        Args:
+            start (int, optional): The starting nucleotide. Defaults to 0.
+            end (int, optional): The final nucleotide. Defaults to the end of the sequence.
+            codon_table (Dict[str, str], optional): A codon table used to translate nucleotides to amino acids. Defaults to standard_code.
+            padchar (str, optional): A padding character between the amino acid codes. Defaults to ''.
+
+        Returns:
+            A tuple, containing the translated sequence and the number of untranslated nucleotides remaining.
+        """
+        if start is None:
             start = 0
-        if end == None:
+        if end is None:
             end = len(self.seq)
-        peptide = ''
+        peptide = ""
+        i = start
         for i in range(start, end, 3):
-            aa = '*'
-            c = self.seq[i:min(i+3, end)]
+            aa = "*"
+            c = self.seq[i : min(i + 3, end)]
             if len(c) != 3:
                 break
             try:
                 aa = codon_table[c]
             except KeyError:
-                raise Exception('unknown codon code: {}'.format(c))
+                raise Exception("unknown codon code: {}".format(c))
             peptide += padchar + aa + padchar
-            if aa == '*':
+            if aa == "*":
                 break
         self.aa = peptide
-        return peptide, end-min(i+3,end)
+        return peptide, end - min(i + 3, end)
 
 
-def unpad_peptide(aa):
-    return aa.replace(' ', '').rstrip('*')
+def unpad_peptide(aa) -> str:
+    """
+    Removes spaces from the peptide and trims terminating signals (*).
 
+    Args:
+        aa (str): A string encoding a peptide.
+
+    Returns:
+        str: A string encoding the same peptide without terminating codons and spaces.
+    """
+    return aa.replace(" ", "").rstrip("*")
+
+
+@dataclass
+class Mutation:
+    contig: str
+    pos: int
+    wt_seq: str
+    mutated_seq: str
+    transcript_id: str
+    phase_id: Optional[int]
+    clonal_structure: Optional[Set[int]]
+    is_germline: bool

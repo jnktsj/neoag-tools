@@ -24,6 +24,7 @@ def write_phase_vcf(outname, df, sample, extra_cols=[]):
     write out VCF file based on supplied index values
     the function reuses the original VCF information
     """
+    assert len(df.drop_duplicates()) == len(df)
     rvcf = pysam.VariantFile(sample.vcf, 'r')
     t_name = sample.vcf_sm
     n_name = set(rvcf.header.samples).difference(set([t_name]))
@@ -56,7 +57,7 @@ def write_phase_vcf(outname, df, sample, extra_cols=[]):
                              number=1,
                              type='String',
                              description='Block ID for phased germline and somatic variants')
-    ovcf = pysam.VariantFile(outname, 'w', header=rvcf.header)                             
+    ovcf = pysam.VariantFile(outname, 'w', header=rvcf.header)
     for _, row in df.iterrows():
         alt = row['Tumor_Seq_Allele']
         mut_type = row['Variant_Type']
@@ -132,11 +133,18 @@ def write_phase_vcf_from_scratch(outname, t_name, n_name, df):
         tumor_format = [ str(refc)+','+str(altc),
                          str(refc+altc),
                          str(altc/max(float(refc+altc),1.0)) ]
+        
+        # dealing with indel vcf annotations
+        if row['Variant_Type']=='INS':
+            alt_allele = row['ref_context'][9]+row['Tumor_Seq_Allele']
+        elif row['Variant_Type']=='DEL':
+            alt_allele = row['ref_context'][9]
+        else: alt_allele = row['Tumor_Seq_Allele']
         v = [ row['Chromosome'],
               row['Start_position'],
               '.',
-              row['Reference_Allele'],
-              row['Tumor_Seq_Allele'],
+              (row['ref_context'][9] if row['Variant_Type']=='INS' else row['Reference_Allele']),
+              alt_allele,
               '.',
               'PASS',
               info_str,
